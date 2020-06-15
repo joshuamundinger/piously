@@ -7,7 +7,6 @@ from room import Room
 from spell import Spell
 
 class Board(object):
-
     def __init__(self):
         self.rooms = []
         self.artworks = [
@@ -36,10 +35,8 @@ class Board(object):
         self.actions = 3
         [spell.untap() for spell in self.spells]
 
-
 def display_list(list):
     return ''.join(['\n  {}'.format(item) for item in list])
-
 
 if __name__ == "__main__":
     b = Board()

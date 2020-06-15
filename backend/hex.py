@@ -30,7 +30,3 @@ if __name__ == "__main__":
     # h.aura = 'bad'
     h.toggle_aura()
     print(h)
-    
-    
-
-

@@ -5,7 +5,6 @@ from board import Board
 import copy
 
 class Game(object):
-
     def __init__(self, start_faction):
         self.old_board = Board()
         self.current_board = Board()
@@ -30,7 +29,6 @@ class Game(object):
 
     def is_game_over(self):
         pass
-
 
 if __name__ == "__main__":
     g = Game("Light")

@@ -4,7 +4,6 @@ Game specific error types
 
 class InvalidMove(Exception, object):
     """Raised when an invalid move is attempted"""
-    pass
 
     def __init__(self, error_message):
         self.full_error = 'INVALID MOVE: {}'.format(error_message)
