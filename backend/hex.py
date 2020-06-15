@@ -3,10 +3,10 @@ hex represents one of 28 hexes on the Piously board.
 """
 
 class Hex(object):
-    def __init__(self, _location, _room):
+    def __init__(self, _location):
         self.location = _location
-        self.room = _room
         self.aura = None
+        self.occupant = None
 
     def toggle_aura():
         if self.aura == None
@@ -18,6 +18,6 @@ class Hex(object):
         else:
             raise RuntimeError "An aura was mis-set."
     
-
+    
 
 
