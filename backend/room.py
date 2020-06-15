@@ -1,7 +1,7 @@
 """
 One of the seven rooms of the temple.
 """
-from hex import *
+from hex import Hex
 
 
 class Room(object):
