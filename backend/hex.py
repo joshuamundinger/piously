@@ -8,15 +8,15 @@ class Hex(object):
         self.aura = None
         self.occupant = None
 
-    def toggle_aura():
-        if self.aura == None
+    def toggle_aura(self):
+        if self.aura == None:
             self.aura = "Dark"
-        else if self.aura == "Dark"
+        elif self.aura == "Dark":
             self.aura = "Light"
-        else if self.aura == "Light"
+        elif self.aura == "Light":
             self.aura = None
         else:
-            raise RuntimeError "An aura was mis-set."
+            raise RuntimeError("An aura was mis-set.")
     
     
 
