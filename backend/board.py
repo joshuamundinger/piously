@@ -1,12 +1,14 @@
 """
 Overall board class to store past and current game state.
 """
+import numpy as np
+
 from backend.artwork import Artwork
 from backend.helpers import display_list, other_faction
 from backend.player import Player
 from backend.room import Room
 from backend.spell import (
-    Pristess, 
+    Priestess, 
     Purify,
     Imposter,
     Imprint,
@@ -42,7 +44,7 @@ class Board(object):
             Artwork('Yellow'),
         ]
         self.spells = [
-            Pristess(self.artworks[0]),
+            Priestess(self.artworks[0]),
             Purify(),
             Imposter(self.artworks[1]),
             Imprint(),
@@ -58,8 +60,11 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = [
-            # TODO(josh): fix data format for root and shape (what's here now is wrong)
-            Room('1', ['2', '3', '4'], self.spells[0], self.spells[1]) 
+            Room(np.matrix([0,0,0]), 
+                [   np.matrix([1,0,-1]),
+                    np.matrix([0,1,-1]),
+                    np.matrix([-1,1,0])
+                ], self.spells[0], self.spells[1]) 
         ]
 
     def __str__(self):

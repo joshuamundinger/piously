@@ -65,25 +65,25 @@ class Spell(object):
 # it seems reasonable to start with asking the needed questions to collect spell
 # specific info, giving all options, and applying those options even if illegal
 # potential things to validate are marked with TOVALIDATE
-class Pristess(Spell):
+class Priestess(Spell):
     def __init__(self, artwork):
-        super(Pristess, self).__init__() # initializes faction and tapped
-        self.name = 'Pristess'
+        super(Priestess, self).__init__() # initializes faction and tapped
+        self.name = 'Priestess'
         self.color = 'Pink'
         self.description = 'Grow linked region'
         self.artwork = artwork
 
     def _validate_operations(self, board, operations):
         if len(operations) != 1:
-            raise InvalidMove('Pristess should make 1 change not {}'.format(len(operations)))
+            raise InvalidMove('Priestess should make 1 change not {}'.format(len(operations)))
 
         operation = operations[0]
         if operation.change not in ['l', 'd']:
-            raise InvalidMove('Pristess cannot include change {}'.format(operation.change))
+            raise InvalidMove('Priestess cannot include change {}'.format(operation.change))
 
         valid_change = board.faction[0].lower() # getting this by slicing the faction name is :(
         if operation.change != valid_change:
-            raise InvalidMove('Pristess change must match turn ({} != {})'.format(operation.change, valid_change))
+            raise InvalidMove('Priestess change must match turn ({} != {})'.format(operation.change, valid_change))
 
         # TOVALIDATE: check operation.hex is adjacent to pristess artwork linked region
 
