@@ -3,8 +3,9 @@ hex represents one of 28 hexes on the Piously board.
 """
 
 class Hex(object):
-    def __init__(self, _location):
-        self.location = _location
+    def __init__(self, room, location):
+        self.room = room
+        self.location = location
         self.aura = None
         self.occupant = None
 
@@ -26,7 +27,7 @@ class Hex(object):
             raise NameError('Hex cannot have aura value "{}".'.format(self.aura))
 
 if __name__ == "__main__":
-    h = Hex(2)
+    h = Hex('Yellow', 2) # these are not the right formats for these params
     # h.aura = 'bad'
     h.toggle_aura()
     print(h)

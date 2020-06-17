@@ -1,46 +1,261 @@
 """
 Overall board class to store past and current game state.
 """
-from artwork import Artwork
-from player import Player
-from room import Room
-from spell import Spell
+from backend.artwork import Artwork
+from backend.helpers import display_list, other_faction
+from backend.player import Player
+from backend.room import Room
+from backend.spell import (
+    Pristess, 
+    Purify,
+    Imposter,
+    Imprint,
+    Opportunist, 
+    Overwork,
+    Usurper,
+    Upset,
+    Stonemason,
+    Shovel,
+    Locksmith,
+    Leap,
+    Yeoman,
+    Yoke,
+)
 
 class Board(object):
-    def __init__(self):
-        self.rooms = []
-        self.artworks = [
-            Artwork('Orange'),
-        ]
-        self.spells = [
-            Spell('Overwork', '+1 Action for each adj. object', 'Orange'),
-            Spell('Opportunist', 'Untap 1 action from 1 linked room', 'Orange'),
-        ]
-        self.players = [
-            Player('Dark'),
-            Player('Light'),
-        ]
+    def __init__(self, start_faction):
+        self.faction = start_faction
+        self.players = {
+            'Dark': Player('Dark'),
+            'Light': Player('Light'),
+        }
         self.actions = 3
 
+        # IDEA: what if each Room inits it's spells and each a_spell inits it's artworks and neither are stored directly on board
+        self.artworks = [
+            Artwork('Pink  '), # weird spacing is intentional so that they print nicely with \t
+            Artwork('Indigo'),
+            Artwork('Orange'),
+            Artwork('Umber '),
+            Artwork('Sapphire'),
+            Artwork('Lime  '),
+            Artwork('Yellow'),
+        ]
+        self.spells = [
+            Pristess(self.artworks[0]),
+            Purify(),
+            Imposter(self.artworks[1]),
+            Imprint(),
+            Opportunist(self.artworks[2]),
+            Overwork(),
+            Usurper(self.artworks[3]),
+            Upset(),
+            Stonemason(self.artworks[4]),
+            Shovel(),
+            Locksmith(self.artworks[5]),
+            Leap(),
+            Yeoman(self.artworks[6]),
+            Yoke(),
+        ]
+        self.rooms = [
+            # TODO(josh): fix data format for root and shape (what's here now is wrong)
+            Room('1', ['2', '3', '4'], self.spells[0], self.spells[1]) 
+        ]
+
     def __str__(self):
-        return '\n***BOARD***\nactions:{actions}\nplayers:{players}\nspells:{spells}\nartworks:{artworks}\n***********\n'.format(
+        return '\n***BOARD***\n{faction}\'s turn\nactions:{actions}\nplayers:{players}\nspells:{spells}\nartworks:{artworks}\n***********\n'.format(
+            faction = self.faction,
             actions = self.actions,
-            players = display_list(self.players),
+            players = display_list(self.players.values()),
             spells = display_list(self.spells), 
             artworks = display_list(self.artworks), 
         )
 
+    def get_current_player(self):
+        return self.players[self.faction]
+
+    ######################
+    # board layout methods
+    ######################
+
+    def get_adjacent_hexes(self, hex):
+        """
+        Returns a list of 0-6 adjacent Hexes.
+        (0 is only possible if you input the Shovel and it's not on the board)
+        """
+        print('WARNING: get_adjacent_hexes not implemented')
+        return []
+
+    def get_adjacent_rooms(self, room):
+        """
+        Returns a list of 0-6 adjacent Rooms.
+        (0 is only possible if you input the Shovel and it's not on the board)
+        """
+        print('WARNING: get_adjacent_rooms not implemented')
+        return []
+
+    def get_linked_rooms(self, hex):
+        """
+        Returns a list of 0-6 linked Rooms.
+
+        Never includes the Shovel.
+        """
+        print('WARNING: get_linked_rooms not implemented')
+        return []
+
     def end_turn(self):
         """Reset board values for start of new turn"""
         self.actions = 3
-        [spell.untap() for spell in self.spells]
+        [spell.untap() for spell in self.spells] 
+        self.faction = other_faction(self.faction)
 
-def display_list(list):
-    return ''.join(['\n  {}'.format(item) for item in list])
+    ##########################
+    # string to object methods
+    ##########################
+
+    """
+    Params: string should be one of [1 5 q t a g z d l]
+    Returns: corresponding Artwork or Player object
+    """
+    def str_to_occupant(self, string):
+        if string == '1':
+            return self.artworks[0]
+        elif string == '5':
+            return self.artworks[1]
+        elif string == 'q':
+            return self.artworks[2]
+        elif string == 't':
+            return self.artworks[3]
+        elif string == 'a':
+            return self.artworks[4]
+        elif string == 'g':
+            return self.artworks[5]
+        elif string == 'z':
+            return self.artworks[6]
+        elif string == 'd':
+            return self.players['Dark']
+        elif string == 'l':
+            return self.players['Light']
+        else:
+            raise NameError('Invalid occupant string {}'.format(string))
+
+    """
+    Params: string should be one of [12 56 qw ty as gh zx] (first one is artwork, second is bewitchment)
+    Returns: corresponding Spell object
+    """
+    def str_to_spell(self, string):
+        if string == '1':
+            return self.spells[0]
+        elif string == '2':
+            return self.spells[1]
+        elif string == '5':
+            return self.spells[2]
+        elif string == '6':
+            return self.spells[3]
+        elif string == 'q':
+            return self.spells[4]
+        elif string == 'w':
+            return self.spells[5]
+        elif string == 't':
+            return self.spells[6]
+        elif string == 'y':
+            return self.spells[7]
+        elif string == 'a':
+            return self.spells[8]
+        elif string == 's':
+            return self.spells[9]
+        elif string == 'g':
+            return self.spells[10]
+        elif string == 'h':
+            return self.spells[11]
+        elif string == 'z':
+            return self.spells[12]
+        elif string == 'x':
+            return self.spells[13]
+        else:
+            raise NameError('Invalid spell string {}'.format(string))
+
+    """
+    Params: string should be one of [1234 5678 qwer tyui asdf ghjk zxcv b n]
+     - TODO: consider instead encoding hexes like: p0 p1 p2 p3 i0 i1 i2 i3 ...
+    Returns: corresponding Hex object
+    """
+    def str_to_hex(self, string):
+        # P
+        if string == '1':
+            return self.rooms[0].hexes[0]
+        elif string == '2':
+            return self.rooms[0].hexes[1]
+        elif string == '3':
+            return self.rooms[0].hexes[2]
+        elif string == '4':
+            return self.rooms[0].hexes[3] 
+        # I
+        elif string == '5':
+            return self.rooms[1].hexes[0]
+        elif string == '6':
+            return self.rooms[1].hexes[1]
+        elif string == '7':
+            return self.rooms[1].hexes[2]
+        elif string == '8':
+            return self.rooms[1].hexes[3]
+        # O
+        elif string == 'q':
+            return self.rooms[2].hexes[0]
+        elif string == 'w':
+            return self.rooms[2].hexes[1]
+        elif string == 'e':
+            return self.rooms[2].hexes[2]
+        elif string == 'r':
+            return self.rooms[2].hexes[3]
+        # U
+        elif string == 't':
+            return self.rooms[3].hexes[0]
+        elif string == 'y':
+            return self.rooms[3].hexes[1]
+        elif string == 'u':
+            return self.rooms[3].hexes[2]
+        elif string == 'i':
+            return self.rooms[3].hexes[3]
+        # S
+        elif string == 'a':
+            return self.rooms[4].hexes[0]
+        elif string == 's':
+            return self.rooms[4].hexes[1]
+        elif string == 'd':
+            return self.rooms[4].hexes[2]
+        elif string == 'f':
+            return self.rooms[4].hexes[3]
+        # L
+        elif string == 'g':
+            return self.rooms[5].hexes[0]
+        elif string == 'h':
+            return self.rooms[5].hexes[1]
+        elif string == 'j':
+            return self.rooms[5].hexes[2]
+        elif string == 'k':
+            return self.rooms[5].hexes[3]
+        # Y
+        elif string == 'z':
+            return self.rooms[6].hexes[0]
+        elif string == 'x':
+            return self.rooms[6].hexes[1]
+        elif string == 'c':
+            return self.rooms[6].hexes[2]
+        elif string == 'v':
+            return self.rooms[6].hexes[3]
+        # others
+        elif string == 'b': # shovel
+            return self.rooms[7].hexes[0]
+        elif string == 'n':
+            return None
+        else:
+            raise NameError('Invalid hex string {}'.format(string))
 
 if __name__ == "__main__":
-    b = Board()
-    b.spells[0].cast()
+    b = Board("Dark")
+    b.actions -= 1
+    # b.spells[4].cast(b, 'q')
     print(b)
     b.end_turn()
     print(b)
