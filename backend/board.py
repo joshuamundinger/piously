@@ -95,7 +95,7 @@ class Board(object):
 
     def get_placed_objects(self):
         # return all objects currently placed on board
-        return [art for art in self.artworks if art.hex] + [player for player in self.players if player.hex]
+        return [art for art in self.artworks if art.hex] + [player for player in self.players.values() if player.hex]
 
     def get_placed_non_player_objects(self):
         return [obj for obj in self.get_placed_objects() if obj != self.get_current_player]        

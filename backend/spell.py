@@ -299,7 +299,7 @@ class Leap(Spell):
         if not hex_str:
             # get list of leap-able objects
             leapable_objects = [obj for obj in board.get_placed_non_player_objects() if location.leap_eligible(board, board.get_current_player().hex, obj.hex)]
-            target_object = choose_from_list(leapable_objects)
+            target_object = choose_from_list(leapable_objects, 'Pick an object to Leap with')
             if not target_object:
                 raise InvalidMove('There\'s no object to Leap with')
         
@@ -330,20 +330,23 @@ class Yoke(Spell):
     def cast(self, board, hex_str = None):
         if not hex_str:
             # get target object for yoking
-            target_object = choose_from_list(board.get_placed_non_player_objects())
+            target_object = choose_from_list(board.get_placed_non_player_objects(), 'Pick an object to Yoke with')
             if not target_object:
                 # you shouldn't be here: there should always be at least two objects
                 raise InvalidMove('There was no other object to Yoke')
             # get directions for yolking
             possible_directions = []
             for u in location.unit_directions:
-                player_can_move = not(location.find_neighbor_hex(board, board.get_current_player().hex, u).occupant)
-                target_can_move = not(location.find_neighbor_hex(board, target_object.hex, u).occupant)
+                player_destination = location.find_neighbor_hex(board, board.get_current_player().hex, u)
+                target_destination = location.find_neighbor_hex(board, target_object.hex, u)
+
+                player_can_move = player_destination and not(player_destination.occupant)
+                target_can_move = target_destination and not(target_destination.occupant)
                 if (player_can_move and target_can_move):
                     possible_directions.append(u)
             # if there's more than one direction, ask user for input
             target_direction = choose_from_list(possible_directions)
-            if not target_direction:
+            if (target_direction == None).any():
                 raise InvalidMove('These two objects have no common direction to move')
 
         # TODO: implement movement

@@ -35,13 +35,16 @@ def find_adjacent_hexes(board, starting_hex):
     return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if item != None]
 
 def leap_eligible(board, hex1, hex2):
+    if hex1 == hex2:
+        return False
     #returns true if two pieces on hex1 and hex2 can Leap, and false otherwise
     try:
         displacement = hex1.location - hex2.location
     except AttributeError:
         print("You tried to leap, but passed nonexistent hexes or locations. Shame on you.")
         return False
-    number_of_tiles = np.gcd.reduce([x for x in displacement.flat if x != 0])
+    nonzero_entries = [x for x in displacement.flat if x != 0]
+    number_of_tiles = np.gcd.reduce(nonzero_entries)
     u = (1/number_of_tiles) * displacement
     return not (None in [find_hex(board, hex2.location + i*u) for i in range(number_of_tiles)])
 
