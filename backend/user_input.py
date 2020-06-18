@@ -11,7 +11,7 @@ def choose_move(board):
     Returns: string representation of the move to make
     '''
     while True:
-        move_type = input('> Would you like to (1) move (2) bless (3) drop (4) pick up (5) cast spell (6) end turn or (7) restart turn? ')
+        move_type = input('> Would you like to (1) move (2) bless (3) drop (4) pick up (5) cast spell (6) end turn (7) restart turn or (8) end game? ')
 
         if move_type == '1':
             return 'move'
@@ -27,10 +27,12 @@ def choose_move(board):
             return 'end turn'
         elif move_type == '7':
             return 'reset turn'
+        elif move_type == '8':
+            return 'end'
         elif move_type == "'": # when this is removed, also remove board param and operation import
             choose_and_apply_cheat(board)
         else:
-            print('Please enter a number 1-7')
+            print('Please enter a number 1-8')
 
 def choose_and_apply_cheat(board):
     print('Enter any operation')
@@ -111,10 +113,12 @@ This is useful for moves like pick_up and purify where the valid objects are adj
 
 def choose_spell_to_take(a_spell, b_spell):
     while True:
-        spell_str = input('> Would you like to take a spell? Enter (1) for {}, (2) for {}, or (3) for No '.format(a_spell.name, b_spell.name))
+        spell_str = input('> Would you like to take a spell? Enter (1) for {}, (2) for {}, or (3) for Neither '.format(a_spell.name, b_spell.name))
         if spell_str == '1':
             return a_spell
         elif spell_str == '2':
             return b_spell
+        elif spell_str == '3':
+            return None
         else:
             print('Please enter a number 1-3')
