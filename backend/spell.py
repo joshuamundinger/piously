@@ -2,8 +2,9 @@
 keeps track of backend of spells, including a pointer to a linked artwork, who owns it, and whether it has been used this turn
 """ 
 from backend.errors import InvalidMove
+from backend.location import find_adjacent_hexes
 from backend.operation import Operation
-from backend.user_input import choose_spell
+from backend.user_input import choose_spell, choose_from_list
 
 class Spell(object):
     def __init__(self):
@@ -78,12 +79,9 @@ class Priestess(Spell):
             raise InvalidMove('Priestess should make 1 change not {}'.format(len(operations)))
 
         operation = operations[0]
-        if operation.change not in ['l', 'd']:
-            raise InvalidMove('Priestess cannot include change {}'.format(operation.change))
-
-        valid_change = board.faction[0].lower() # getting this by slicing the faction name is :(
-        if operation.change != valid_change:
-            raise InvalidMove('Priestess change must match turn ({} != {})'.format(operation.change, valid_change))
+        valid_changes = [board.faction, board.faction[0].lower()] # getting this by slicing the faction name is :(
+        if operation.change not in valid_changes:
+            raise InvalidMove('Priestess change cannot be {}'.format(operation.change))
 
         # TOVALIDATE: check operation.hex is adjacent to pristess artwork linked region
 
@@ -99,14 +97,32 @@ class Purify(Spell):
             raise InvalidMove('Purify should make 1 change not {}'.format(len(operations)))
 
         operation = operations[0]
-        if operation.change not in ['l', 'd']:
-            raise InvalidMove('Purify cannot include change {}'.format(operation.change))
-
-        valid_change = board.faction[0].lower() # getting this by slicing the faction name is :(
-        if operation.change != valid_change:
-            raise InvalidMove('Purify change must match turn ({} != {})'.format(operation.change, valid_change))
+        valid_changes = [board.faction, board.faction[0].lower()] # getting this by slicing the faction name is :(
+        if operation.change not in valid_changes:
+            raise InvalidMove('Purify change cannot be {}'.format(operation.change))
 
         # TOVALIDATE: check operation.hex is adjacent to player token and has an object on it
+
+    def cast(self, board, hex_str=None):
+        # use hex_str if given, otherwise prompt for input
+        if hex_str == None or hex_str == []: # can be [] if called with Spell's params (board, operations)
+            print(self.description)
+            adj_hexes = find_adjacent_hexes(board, board.get_current_player().hex)
+            adj_hexes_w_objs = [h for h in adj_hexes if h.occupant != None]
+
+            if len(adj_hexes_w_objs) == 0:
+                raise InvalidMove('No adjacent hexes have an object')
+            elif len(adj_hexes_w_objs) == 1:
+                hex = adj_hexes_w_objs[0]
+                print('Using Purify on {}'.format(hex))
+            else:
+                hex = choose_from_list(adj_hexes_w_objs)
+        else:
+            hex = hex_str
+
+        # TOVALIDATE: hex is not already occupied by that color aura
+        operations = [Operation(hex, board.faction)]
+        super(Purify, self).cast(board, operations)
 
 class Imposter(Spell):
     def __init__(self, artwork):
