@@ -23,31 +23,43 @@ class Game(object):
         return self.current_board.get_current_player()
 
     def move(self):
+        if self.current_board.actions < 1:
+            raise InvalidMove('You cannot move because you have no more actions')
+
         print('You want to move but that\'s not implemented yet... skipping')
-        pass
         self.current_board.actions -= 1
 
     def bless(self):
         player = self.get_current_player()
         old_aura = player.hex.aura
+        n_actions = self.current_board.actions
 
         if old_aura == self.current_board.faction:
             raise InvalidMove('You cannot bless a hex that already has your aura')
         elif old_aura == None:
+            if n_actions < 1:
+                raise InvalidMove('You cannot bless because you have no more actions')
             self.current_board.actions -= 1
             Operation(player.hex, self.current_board.faction).apply(self.current_board)
         else:
+            if n_actions < 2:
+                raise InvalidMove('You cannot bless because you have {} action{} remaining'.format(
+                    n_actions,
+                    '' if n_actions == 1 else 's',
+                ))
             self.current_board.actions -= 2
             Operation(player.hex, self.current_board.faction).apply(self.current_board)
 
     def drop(self):
+        if self.current_board.actions < 1:
+            raise InvalidMove('You cannot drop because you have no more actions')
         print('You want to drop but that\'s not implemented yet... skipping')
-        pass
         self.current_board.actions -= 1
 
     def pick_up(self):
+        if self.current_board.actions < 1:
+            raise InvalidMove('You cannot pick up because you have no more actions')
         print('You want to pick up but that\'s not implemented yet... skipping')
-        pass
         self.current_board.actions -= 1
 
     def cast_spell(self):
@@ -76,6 +88,10 @@ class Game(object):
             print('Spells for current room are already claimed')
 
     def end_turn(self):
+        if self.current_board.actions < 0:
+            raise InvalidMove('You cannot end turn with negative actions, please reset turn and try again')
+        self.maybe_claim_spell()
+
         print('ENDING TURN')
         self.current_board.end_turn()
         self.old_board = copy.deepcopy(self.current_board)
@@ -108,10 +124,6 @@ if __name__ == "__main__":
 
     # enter main game loop
     while not piously.is_game_over():
-        if piously.current_board.actions < 0:
-            input('INVALID MOVE: You used too many actions. Press Enter to reset turn ')
-            piously.reset_turn()
-
         print(piously)
         move_type = user_input.choose_move(piously.current_board)
         try: 
@@ -126,9 +138,14 @@ if __name__ == "__main__":
             elif move_type == 'cast spell':
                 piously.cast_spell()
             elif move_type == 'end turn':
-                piously.maybe_claim_spell()
                 piously.end_turn()
             elif move_type == 'reset turn':
                 piously.reset_turn()
+            elif move_type == 'end':
+                current_faction = piously.current_board.faction
+                print('{} forefits, {} wins!'.format(current_faction, other_faction(current_faction)))
+                break
         except InvalidMove as move:
             input('{} '.format(move))
+    
+    print('Goodbye :)\n')
