@@ -5,6 +5,7 @@ from backend.errors import InvalidMove
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
 from backend.user_input import choose_spell, choose_from_list
+import backend.location as location
 
 class Spell(object):
     def __init__(self):
@@ -59,6 +60,16 @@ class Spell(object):
     def _apply_operations(self, board, operations):
         [operation.apply(board) for operation in operations]
 
+    def _validate_artwork_position(self, board):
+        # if the spell has an artwork, check if it's placed on the board, on your aura
+        if self.artwork:
+            if self.artwork.hex:
+                if self.artwork.hex.aura != board.faction:
+                    raise InvalidMove('{} is not on player\'s aura'.format(self.name))
+            else: 
+                raise InvalidMove('{} is not placed on board'.format(self.name))
+
+
 # TODO: implement _validate_operations for each spell (search for pass in this file)
 # there is some decision to be made about how far to go in terms of
 #  - only giving the user valid choices
@@ -85,6 +96,29 @@ class Priestess(Spell):
 
         # TOVALIDATE: check operation.hex is adjacent to pristess artwork linked region
 
+    def cast(self,board,hex_str=None):
+        self._validate_artwork_position(board)
+        # prompt if no hex was passed
+        if hex_str == None or hex_str == []:
+            print(self.description)
+            target_hex = choose_from_list(location.adjacent_linked_region(board, board.artworks[0].hex))
+            if not target_hex:
+                raise InvalidMove('There are no hexes which the Priestess may bless')
+            print('Using the Priestess on {}'.format(target_hex))
+
+            
+        else:
+            target_hex = hex_str
+
+        operations = [Operation(target_hex, board.faction)]
+        super(Priestess, self).cast(board, operations)
+
+        """
+        # alternative version 
+        target_hex.aura = board.faction
+        """ 
+
+
 class Purify(Spell):
     def __init__(self):
         super(Purify, self).__init__() # initializes faction and tapped
@@ -108,15 +142,11 @@ class Purify(Spell):
         if hex_str == None or hex_str == []: # can be [] if called with Spell's params (board, operations)
             print(self.description)
             adj_hexes = find_adjacent_hexes(board, board.get_current_player().hex)
-            adj_hexes_w_objs = [h for h in adj_hexes if h.occupant != None]
-
-            if len(adj_hexes_w_objs) == 0:
+            # choose from neighbors which are occupied
+            hex = choose_from_list([h for h in adj_hexes if h.occupant != None])
+            if not hex:
                 raise InvalidMove('No adjacent hexes have an object')
-            elif len(adj_hexes_w_objs) == 1:
-                hex = adj_hexes_w_objs[0]
-                print('Using Purify on {}'.format(hex))
-            else:
-                hex = choose_from_list(adj_hexes_w_objs)
+            print('Using Purify on {}'.format(hex))
         else:
             hex = hex_str
 
@@ -197,9 +227,8 @@ class Overwork(Spell):
 
     def cast(self, board):
         # no user input needed
-        num_adj_hexes_occupied = 2 # TODO: calculate (or could make user enter it)
-        print('Overwork calculation not implemented, assuming 2 adjacent objects')
-
+        adj_hexes = location.find_adjacent_hexes(board, board.get_current_player().hex)
+        num_adj_hexes_occupied = len([ x for x in adj_hexes if x.occupant])
         operations = [Operation('n', 'a')] * num_adj_hexes_occupied
         super(Overwork, self).cast(board, operations)
 
@@ -266,6 +295,17 @@ class Leap(Spell):
     def _validate_operations(self, board, operations):
         pass
 
+    def cast(self, board, hex_str=None):
+        if not hex_str:
+            # get list of leap-able objects
+            leapable_objects = [obj for obj in board.get_placed_non_player_objects() if location.leap_eligible(board, board.get_current_player().hex, obj.hex)]
+            target_object = choose_from_list(leapable_objects)
+            if not target_object:
+                raise InvalidMove('There\'s no object to Leap with')
+        
+        # TODO: implement leaping
+        raise InvalidMove('Leaping not implemented')
+
 class Yeoman(Spell):
     def __init__(self, artwork):
         super(Yeoman, self).__init__() # initializes faction and tapped
@@ -286,6 +326,28 @@ class Yoke(Spell):
 
     def _validate_operations(self, board, operations):
         pass
+
+    def cast(self, board, hex_str = None):
+        if not hex_str:
+            # get target object for yoking
+            target_object = choose_from_list(board.get_placed_non_player_objects())
+            if not target_object:
+                # you shouldn't be here: there should always be at least two objects
+                raise InvalidMove('There was no other object to Yoke')
+            # get directions for yolking
+            possible_directions = []
+            for u in location.unit_directions:
+                player_can_move = not(location.find_neighbor_hex(board, board.get_current_player().hex, u).occupant)
+                target_can_move = not(location.find_neighbor_hex(board, target_object.hex, u).occupant)
+                if (player_can_move and target_can_move):
+                    possible_directions.append(u)
+            # if there's more than one direction, ask user for input
+            target_direction = choose_from_list(possible_directions)
+            if not target_direction:
+                raise InvalidMove('These two objects have no common direction to move')
+
+        # TODO: implement movement
+        raise InvalidMove('Casting not implemented')
 
 if __name__ == "__main__":
     # run this code from /piously with `python3 -m backend.spell`

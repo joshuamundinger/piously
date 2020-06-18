@@ -26,9 +26,13 @@ def find_hex(board, location):
                 return test_hex
     return None
 
+def find_neighbor_hex(board, starting_hex, direction):
+    #find the hex at direction relative to direction
+    return find_hex(board, starting_hex.location + direction)
+
 def find_adjacent_hexes(board, starting_hex):
     #given a hex, return the (up to six) neighboring hexes
-    return [ item for item in  [find_hex(board, starting_hex.location + u) for u in unit_directions] if item != None]
+    return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if item != None]
 
 def leap_eligible(board, hex1, hex2):
     #returns true if two pieces on hex1 and hex2 can Leap, and false otherwise

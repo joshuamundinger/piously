@@ -58,6 +58,10 @@ Params: list of objects
 Returns: chosen object
 '''
 def choose_from_list(ls):
+    if len(ls) == 0:
+        return None
+    elif len(ls) == 1:
+        return ls[0]
     while True:
         for idx, obj in enumerate(ls):
             print(' ({}) {}'.format(idx + 1, obj))
