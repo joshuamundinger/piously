@@ -60,11 +60,18 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = [
+            #P
             Room(np.matrix([0,0,0]), 
                 [   np.matrix([1,0,-1]),
                     np.matrix([0,1,-1]),
-                    np.matrix([-1,1,0])
-                ], self.spells[0], self.spells[1]) 
+                    np.matrix([0,-1,1])
+                ], self.spells[0], self.spells[1]),
+            #I
+            Room(np.matrix([2,-2,0]),
+                [   np.matrix([0,-1,1]),
+                    np.matrix([0,-2,2]),
+                    np.matrix([0,-3,3])
+                ], self.spells[2], self.spells[3])
         ]
 
     def __str__(self):
