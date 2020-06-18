@@ -105,7 +105,29 @@ class Game(object):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot pick up because you have no more actions')
         print('You want to pick up but that\'s not implemented yet... skipping')
+        
+        # get list of eligible hexes
+        player = self.get_current_player()
+        adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
+        
+        # get list of eligible artworks
+        faction = self.current_board.faction
+        eligible_artworks = []
+        for artwork in self.current_board.artworks:
+            if artwork.faction == faction and artwork.hex in adj_hexes:
+                eligible_artworks.append(artwork)
+        if len(eligible_artworks) == 0:
+            raise InvalidMove('{} does not have any adjacent artworks to pick up'.format(faction))
+
+        # prompt for artwork choice if needed
+        if len(eligible_artworks) == 1:
+            artwork = eligible_artworks[0]
+            print('Picking up {}'.format(artwork))
+        else:
+            artwork = user_input.choose_from_list(eligible_artworks)
+        
         self.current_board.actions -= 1
+        self.move_object(artwork, from_hex=artwork.hex)
 
     def cast_spell(self):
         spell = user_input.choose_spell(self.current_board)
