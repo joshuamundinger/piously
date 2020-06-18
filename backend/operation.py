@@ -8,8 +8,8 @@ Params:
     - b  = shovel
     - n  = none
  - change: string, one of: (* means requires extra info)
-    - l  = change to light aura
-    - d  = change to dark aura
+    - l  = change to light aura (or "Light")
+    - d  = change to dark aura (or "Dark")
     - n  = change to no aura
     - a  = add action
     - s  = subtract action
@@ -17,7 +17,7 @@ Params:
     - p* = place object
     - r* = remove object
     - u* = untap a spell
-    - TODO: maybe add c* = claim spell and replace logic in Game.maybe_claim_spell()
+    - c* = claim spell (note: does not give other player the other spell)
  - extras: dict string -> string, keys are one of [occupant location spell]
     - occupant: value can be one of [1 5 q t a g z d l]
         - d = dark player
@@ -56,11 +56,15 @@ class Operation(object):
         elif self.change == 'm': # move hex to location
             hex.location = self.extras['location']
         elif self.change == 'p': # place object
-            occupant = board.str_to_occupant(self.extras['occupant'])
+            occupant = self.extras['occupant']
+            if isinstance(occupant, str):
+                occupant = board.str_to_occupant(occupant)
             occupant.hex = hex
             hex.occupant = occupant
         elif self.change == 'r': # remove object
-            occupant = board.str_to_occupant(self.extras['occupant'])
+            occupant = self.extras['occupant']
+            if isinstance(occupant, str):
+                occupant = board.str_to_occupant(occupant)
             occupant.hex = None
             hex.occupant = None
         elif self.change == 'u': # untap a spell
@@ -73,5 +77,7 @@ class Operation(object):
             if isinstance(spell, str):
                 spell = board.str_to_spell(spell)
             spell.faction = board.faction
+            if spell.artwork != None:
+                spell.artwork.faction = board.faction
         else:
             raise RuntimeError('Invalid change {}'.format(self.change))

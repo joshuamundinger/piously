@@ -54,6 +54,20 @@ def choose_hex(board):
             print('Please enter one of [1234 5678 qwer tyui asdf ghjk zxcv b n]')
 
 '''
+Params: list of objects
+Returns: chosen object
+'''
+def choose_from_list(ls):
+    while True:
+        for idx, obj in enumerate(ls):
+            print(' ({}) {}'.format(idx + 1, obj))
+        choice = input('> Which do you want? ')
+        try:
+            return ls[int(choice) - 1]
+        except (ValueError, IndexError):
+            print('Please a number 1-{}'.format(len(ls) + 1))
+
+'''
 Params: Board object to get changes from
 Returns: chosen Hex object
 '''
