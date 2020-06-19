@@ -30,9 +30,9 @@ def find_neighbor_hex(board, starting_hex, direction):
     #find the hex at direction relative to direction
     return find_hex(board, starting_hex.location + direction)
 
-def find_adjacent_hexes(board, starting_hex):
+def find_adjacent_hexes(board, starting_hex, return_nones = False):
     #given a hex, return the (up to six) neighboring hexes
-    return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if item != None]
+    return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if (item != None or return_nones)]
 
 def leap_eligible(board, hex1, hex2):
     if hex1 == hex2:
@@ -84,6 +84,16 @@ def linked_hexes(board, starting_hex):
 def adjacent_linked_region(board, starting_hex):
     # search for linked hexes, check if they are the same aura, and return the boundary
     return linked_search(board, starting_hex, True, True)
+
+def linked_rooms(board, starting_hex):
+    linked_hex = linked_hexes(board,starting_hex)
+    linked_room = []
+    for room in board.rooms:
+        for test_hex in room.hexes:
+            if test_hex in linked_hex:
+                linked_room.append(room)
+                break
+    return linked_room
 
 def neighboring_region(board, hex_list):
     neighbors = []

@@ -54,7 +54,7 @@ class Game(object):
             
         
         self.current_board.actions -= 1
-        self.move_object(player, from_hex=player.hex, to_hex=hex)
+        self.current_board.move_object(player, from_hex=player.hex, to_hex=hex)
 
     def bless(self):
         player = self.get_current_player()
@@ -94,6 +94,8 @@ class Game(object):
         for artwork in self.current_board.artworks:
             if artwork.faction == faction and artwork.hex == None:
                 eligible_artworks.append(artwork)
+        if len(eligible_artworks) == 0:
+            raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
 
         hex = screen_input.choose_from_list(self.graphics, adj_hexes_wo_objs)
         if not hex:
@@ -110,13 +112,12 @@ class Game(object):
             print('Dropping {}'.format(artwork))
             
         self.current_board.actions -= 1
-        self.move_object(artwork, to_hex=hex)
+        self.current_board.move_object(artwork, to_hex=hex)
 
     def pick_up(self):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot pick up because you have no more actions')
-        print('You want to pick up but that\'s not implemented yet... skipping')
-
+        
         # get list of eligible hexes
         player = self.get_current_player()
         adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
@@ -135,7 +136,7 @@ class Game(object):
         print('Picking up {}'.format(artwork))
         
         self.current_board.actions -= 1
-        self.move_object(artwork, from_hex=artwork.hex)
+        self.current_board.move_object(artwork, from_hex=artwork.hex)
 
     def cast_spell(self):
         spell = screen_input.choose_spell(self.graphics, self.current_board)
@@ -190,16 +191,9 @@ class Game(object):
         hex1 = self.current_board.rooms[0].hexes[0]
         hex2 = self.current_board.rooms[0].hexes[1]
 
-        self.move_object(light_player, to_hex=hex1)
-        self.move_object(dark_player, to_hex=hex2)
+        self.current_board.move_object(light_player, to_hex=hex1)
+        self.current_board.move_object(dark_player, to_hex=hex2)
 
-    def move_object(self, occupant, from_hex=None, to_hex=None):
-        # order matters here, updating occupant.hex last make it ok for from_hex to be occupant.hex initially
-        if from_hex != None:
-            from_hex.occupant = None
-        if to_hex != None:
-            to_hex.occupant = occupant
-        occupant.hex = to_hex
 
     def play(self):
         # set up board
