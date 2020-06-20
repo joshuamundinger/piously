@@ -7,6 +7,7 @@ from backend.artwork import Artwork
 from backend.helpers import display_list, other_faction
 from backend.player import Player
 from backend.room import Room
+import backend.location as location
 from backend.spell import (
     Priestess,
     Purify,
@@ -89,6 +90,30 @@ class Board(object):
     ######################
     # board layout methods
     ######################
+    """
+    # It's not clear that this function has any use.
+    def is_connected(self):
+        # does a breath-first search from the 0th hex in the 0th room,
+        # then checks if all hexes have been found this way.
+        number_of_hexes = sum([len(room.hexes) for room in self.rooms])
+        return number_of_hexes == len(linked_search(self, self.rooms[0].hexes[0], False, False))
+    """
+
+    def get_room(self, hex):
+        # find the room containing the given hex
+        rooms = [room for room in self.rooms if hex in room.hexes]
+        if len(rooms) == 1:
+            return rooms[0]
+        else:
+            return rooms
+
+    def get_neighboring_rooms(self, starting_room):
+        neighboring_rooms = []
+        for current_hex in location.neighboring_region(self, starting_room):
+            current_room = self.get_room(current_hex)
+            if not(current_room in neighboring_rooms):
+                neighboring_rooms.append(current_room)
+        return neighboring_rooms
 
     def get_adjacent_hexes(self, hex):
         """
