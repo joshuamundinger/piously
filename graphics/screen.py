@@ -10,6 +10,7 @@ from backend.helpers import other_faction
 
 BACKGROUND = pg.Color("white")
 SCREEN_SIZE = (600, 400)
+TRANSPARENT = (0, 0, 0, 0)
 FPS = 10 # 60
 FONT = "Arial"
 
@@ -33,6 +34,16 @@ FACTION_COLORS = {
 HEX_POINTS = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
 HEX_FOOTPRINT = (65, 32)
 
+# TODO:
+# - implement clicking on hex
+# - make hexes regular
+# - debug black rect around hex on linux
+# - display prompt text on screen
+# - display more board state (ex spells faction+tapped) on screen
+# - indicate valid hexes to click visually
+# - make the player object prettier
+# - move some classes into seperate files
+
 class HexTile(pg.sprite.Sprite):
     def __init__(self, pos, room, name, *groups):
         # *groups is initialized as pg.sprite.LayeredUpdates()
@@ -50,12 +61,14 @@ class HexTile(pg.sprite.Sprite):
 
     def make_tile(self, room):
         image = pg.Surface(HEX_FOOTPRINT).convert_alpha()
+        image.fill(TRANSPARENT)
         pg.draw.polygon(image, self.color, HEX_POINTS)
         pg.draw.lines(image, pg.Color("black"), 1, HEX_POINTS, 2)
         return image
 
     def make_mask(self):
         temp_image = pg.Surface(self.image.get_size()).convert_alpha()
+        temp_image.fill(TRANSPARENT)
         pg.draw.polygon(temp_image, pg.Color("red"), HEX_POINTS)
         return pg.mask.from_surface(temp_image)
 
@@ -65,6 +78,7 @@ class CursorHighlight(pg.sprite.Sprite):
     def __init__(self, *groups):
         super(CursorHighlight, self).__init__(*groups)
         self.image = pg.Surface(HEX_FOOTPRINT).convert_alpha()
+        self.image.fill(TRANSPARENT)
         pg.draw.polygon(self.image, self.COLOR, HEX_POINTS)
         self.rect = pg.Rect((0,0,1,1))
         self.mask = pg.Mask((1,1))
@@ -244,5 +258,6 @@ def text_render(text, font, color=pg.Color("black")):
     text_rend = font.render(text, 1, color)
     text_rect = text_rend.get_rect()
     image = pg.Surface(text_rect.size).convert_alpha()
+    image.fill(TRANSPARENT)
     image.blit(text_rend, text_rect)
     return image
