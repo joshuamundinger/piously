@@ -6,8 +6,8 @@ from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
-from graphics.board import PiouslyApp
-import backend.screen_input as screen_input
+from graphics.screen import PiouslyApp
+import graphics.screen_input as screen_input
 import copy
 
 class Game(object):
