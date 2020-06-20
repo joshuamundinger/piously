@@ -19,7 +19,7 @@ unit_directions = [
     ]
 
 def find_hex(board, location):
-    #given a board and a location, return the hex at this location, or None if no hex exists
+    # given a board and a location, return the hex at this location, or None if no hex exists
     for room in board.rooms:
         for test_hex in room.hexes:
             if (test_hex.location == location).all():
@@ -27,17 +27,17 @@ def find_hex(board, location):
     return None
 
 def find_neighbor_hex(board, starting_hex, direction):
-    #find the hex at direction relative to direction
+    # find the hex at direction relative to direction
     return find_hex(board, starting_hex.location + direction)
 
 def find_adjacent_hexes(board, starting_hex, return_nones = False):
-    #given a hex, return the (up to six) neighboring hexes
+    # given a hex, return the (up to six) neighboring hexes
     return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if (item != None or return_nones)]
 
 def leap_eligible(board, hex1, hex2):
     if hex1 == hex2:
         return False
-    #returns true if two pieces on hex1 and hex2 can Leap, and false otherwise
+    # returns True if two pieces on hex1 and hex2 can Leap, and False otherwise
     try:
         displacement = hex1.location - hex2.location
     except AttributeError:
@@ -46,7 +46,12 @@ def leap_eligible(board, hex1, hex2):
     nonzero_entries = [x for x in displacement.flat if x != 0]
     number_of_tiles = np.gcd.reduce(nonzero_entries)
     u = (1/number_of_tiles) * displacement
-    return not (None in [find_hex(board, hex2.location + i*u) for i in range(number_of_tiles)])
+
+    # check each position in the row and make sure none are empty
+    for i in range(number_of_tiles):
+        if not find_hex(board, hex2.location + i*u):
+            return False
+    return True
 
 def linked_search(board, starting_hex, check_auras, check_boundary):
     # given a hex, return the list of all hexes connected to the starting hex
@@ -59,9 +64,9 @@ def linked_search(board, starting_hex, check_auras, check_boundary):
     boundary = []
     while list_of_steps[-1] != []:
         for current_hex in list_of_steps[-1]:
-            #iterate over hexes found in the last step
+            # iterate over hexes found in the last step
             for candidate_hex in find_adjacent_hexes(board, current_hex):
-                #check if the current hex's neighbors are the same aura as the start
+                # check if the current hex's neighbors have not been visited
                 if not(candidate_hex in visited_hexes):
                     # add the new hex to the list IF not checking auras OR IF it has the right aura
                     if (not check_auras) or (candidate_hex.aura == starting_hex.aura):
@@ -70,6 +75,7 @@ def linked_search(board, starting_hex, check_auras, check_boundary):
                     # if computing the boundary, add it to the boundary
                     elif check_boundary and not(candidate_hex in boundary):
                         boundary.append(candidate_hex)
+        # TODO: dont think deepcopy is needed -> try removing
         list_of_steps.append(deepcopy(new_hex_list))
         new_hex_list = []
     if check_boundary:
@@ -102,18 +108,3 @@ def neighboring_region(board, hex_list):
             if not(test_hex in neighbors or test_hex in hex_list):
                 neighbors.append(test_hex)
     return neighbors
-
-"""
-if __name__ == "__main__":
-    from backend.board import Board
-
-    board = Board('Dark')
-    test_hex = find_hex(board, np.matrix([0,0,0]))
-    test_hex.aura = 'Light'
-    find_hex(board, np.matrix([1,0,-1])).aura = 'Light'
-    find_hex(board, np.matrix([2,-3,1])).aura = 'Light'
-    
-    print([str(x) for x in linked_hexes(board,test_hex)])
-    print([str(x) for x in adjacent_linked_region(board, test_hex)])
-"""
-
