@@ -1,6 +1,7 @@
 """
-hex represents one of 28 hexes on the Piously board. 
+hex represents one of 28 hexes on the Piously board.
 """
+from backend.helpers import other_faction
 
 class Hex(object):
     def __init__(self, room, location):
@@ -16,16 +17,10 @@ class Hex(object):
             occupant = self.occupant,
         )
 
+    # TODO: maybe remove
     def toggle_aura(self):
-        if self.aura == "Dark":
-            self.aura = "Light"
-        elif self.aura == "Light":
-            self.aura = "Dark"
-        elif self.aura == None:
-            pass
-        else:
-            raise NameError('Hex cannot have aura value "{}".'.format(self.aura))
-
+        self.aura = other_faction(self.aura)
+        
 if __name__ == "__main__":
     h = Hex('Yellow', 2) # these are not the right formats for these params
     # h.aura = 'bad'

@@ -3,24 +3,24 @@ User input helper functions. Currently they all rely on keypresses, but eventaul
 Some of them are just to make testing easier
 """
 
-def get_keypress(app):
+def get_keypress(screen):
     while True:
-        app.loop_once()
-        if app.key == None:
+        screen.loop_once()
+        if screen.key == None:
             continue
         else:
-          keypress = app.key
-          app.key = None
+          keypress = screen.key
+          screen.key = None
           return keypress
 
-def choose_move(app, board):
+def choose_move(screen):
     '''
     Params: none
     Returns: string representation of the move to make
     '''
     while True:
         print('> Would you like to (1) move (2) bless (3) drop (4) pick up (5) cast spell (6) end turn (7) restart turn or (8) end game? ')
-        move_type = get_keypress(app)
+        move_type = get_keypress(screen)
 
         if move_type == '1':
             return 'move'
@@ -45,7 +45,7 @@ def choose_move(app, board):
 Params: list of objects
 Returns: chosen object
 '''
-def choose_from_list(app, ls, prompt_text=None):
+def choose_from_list(screen, ls, prompt_text=None):
     if len(ls) == 0:
         return None
     elif len(ls) == 1:
@@ -57,7 +57,7 @@ def choose_from_list(app, ls, prompt_text=None):
         for idx, obj in enumerate(ls):
             print(' ({}) {}'.format(idx + 1, obj))
         print('> Which do you want? ')
-        choice = get_keypress(app)
+        choice = get_keypress(screen)
         try:
             return ls[int(choice) - 1]
         except (ValueError, IndexError):
@@ -68,10 +68,10 @@ Params: Board object to get spell from
 Returns: chosen Spell object
 # TODO: consolidate use of choose_spell with choose_from_list
 '''
-def choose_spell(app, board):
+def choose_spell(screen, board):
     while True:
         print('> What spell do you want? ')
-        spell_str = get_keypress(app)
+        spell_str = get_keypress(screen)
         try:
             return board.str_to_spell(spell_str)
         except NameError:
