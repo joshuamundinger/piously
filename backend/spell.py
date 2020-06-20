@@ -5,6 +5,7 @@ from backend.errors import InvalidMove
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
 from backend.user_input import choose_spell, choose_from_list
+from copy import deepcopy
 import backend.location as location
 
 class Spell(object):
@@ -165,6 +166,19 @@ class Imposter(Spell):
     def _validate_operations(self, board, operations):
         pass
 
+    def cast(self,board):
+        self._validate_artwork_position(board)
+        # get a linked room.
+        target_room = choose_from_list(location.linked_rooms(board, self.artwork.hex))
+        # get list of auras in artwork's room
+        aura_list = deepcopy([hex.aura for hex in self.artwork.hex.room.hexes])
+        for hex in target_room.auras:
+            new_aura = choose_from_list(aura_list, prompt_text="Aura for hex at {}".format(hex.location))
+            hex.aura = new_aura
+            aura_list.remove(new_aura)
+
+            # TODO: test
+
 class Imprint(Spell):
     def __init__(self):
         super(Imprint, self).__init__() # initializes faction and tapped
@@ -174,6 +188,26 @@ class Imprint(Spell):
 
     def _validate_operations(self, board, operations):
         pass
+
+    def cast(self, board):
+        # requires no input from player
+        # get auras around opponent
+        current_player = board.get_current_player() 
+        opposing_player = board.get_opposing_player()
+        opposing_neighboring_auras = []
+        for hex in location.find_adjacent_hexes(board,opposing_player.hex, return_nones=True):
+            if hex:
+                opposing_neighboring_auras.append(hex.aura)
+            else:
+                opposing_neighboring_auras.append('Skip')
+        # now put auras on neighborhood of current_player
+        current_player.hex.aura = opposing_player.hex.aura
+        current_player_neighborhood = location.find_adjacent_hexes(board,current_player.hex,return_nones=True)
+        for i in range(6):
+            if opposing_neighboring_auras[i] != 'Skip':
+                current_player_neighborhood[i].aura = opposing_neighboring_auras[i]
+        
+        # TODO: test
 
 class Opportunist(Spell):
     def __init__(self, artwork):
@@ -204,6 +238,7 @@ class Opportunist(Spell):
 
     def cast(self, board, spell_str=None):
         # use spell_str if given, otherwise prompt for input
+        # TODO: add verification for chosen spell's room to be linked to the Opportunist
         if spell_str == None or spell_str == []: # can be [] if called with Spell's params (board, operations)
             print(self.description)
             spell = choose_spell(board)
@@ -243,6 +278,23 @@ class Usurper(Spell):
     def _validate_operations(self, board, operations):
         pass
 
+    def cast(self, board):
+        self._validate_artwork_position(board)
+        test_board = deepcopy(board)
+        # pick two linked hexes to flip
+        for i in range(2):
+            hex_to_flip = choose_from_list(location.linked_hexes(test_board, self.artwork.hex), 
+                prompt_text='Pick a hex on which to flip')
+            hex_to_flip.toggle_aura()
+            #check to see if we flipped under the artwork
+            self._validate_artwork_position(test_board)
+        for i in range(2):
+            hex_to_change = choose_from_list(location.adjacent_linked_region(test_board, self.artwork.hex),
+                prompt_text='Pick a hex on which to grow')
+            hex_to_change.aura = test_board.get_current_player()
+        board = test_board
+        # TODO: test
+
 class Upset(Spell):
     def __init__(self):
         super(Upset, self).__init__() # initializes faction and tapped
@@ -252,6 +304,16 @@ class Upset(Spell):
 
     def _validate_operations(self, board, operations):
         pass
+
+    def cast(self, board):
+        # get hexes and their auras
+        neighborhood = [board.get_current_player().hex] + location.find_adjacent_hexes(board, board.get_current_player().hex)
+        n_auras = deepcopy([x.aura for x in neighborhood])
+        for hex in neighborhood:
+            new_aura = choose_from_list(n_auras, prompt_text="Pick aura for hex {}".format(hex))
+            hex.aura = new_aura
+            n_auras.remove(new_aura)
+            # TODO: test
 
 class Stonemason(Spell):
     def __init__(self, artwork):
@@ -285,6 +347,26 @@ class Locksmith(Spell):
     def _validate_operations(self, board, operations):
         pass
 
+    def cast(self, board, hex_str = None):
+        self._validate_artwork_position(board)
+        # get list of linked objects
+        linked_objects = [hex.occupant for hex in location.linked_hexes(board,self.artwork.hex) if hex.occupant != None]
+        # get list of hexes to move to from the board
+        target_hexes = []
+        for room in board.rooms:
+            for hex in room.hexes:
+                if hex.occupant == None:
+                    target_hexes.append(hex)
+        if target_hexes == []:
+            raise InvalidMove('All hexes are occupied.')
+        # choose a linked object to move. There should always be at least one, 
+        # since we've validated that the Locksmith is on an aura
+        target_object = choose_from_list(linked_objects)
+        target_hex = choose_from_list(target_hexes)
+        board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
+
+        # TODO: test
+
 class Leap(Spell):
     def __init__(self):
         super(Leap, self).__init__() # initializes faction and tapped
@@ -297,14 +379,14 @@ class Leap(Spell):
 
     def cast(self, board, hex_str=None):
         if not hex_str:
+            current_player = board.get_current_player()
             # get list of leap-able objects
-            leapable_objects = [obj for obj in board.get_placed_non_player_objects() if location.leap_eligible(board, board.get_current_player().hex, obj.hex)]
+            leapable_objects = [obj for obj in board.get_placed_non_player_objects() if location.leap_eligible(board, current_player.hex, obj.hex)]
             target_object = choose_from_list(leapable_objects, 'Pick an object to Leap with')
             if not target_object:
                 raise InvalidMove('There\'s no object to Leap with')
-        
-        # TODO: implement leaping
-        raise InvalidMove('Leaping not implemented')
+        board.swap_object(current_player, target_object)        
+        # TODO: test
 
 class Yeoman(Spell):
     def __init__(self, artwork):
@@ -339,7 +421,7 @@ class Yoke(Spell):
             for u in location.unit_directions:
                 player_destination = location.find_neighbor_hex(board, board.get_current_player().hex, u)
                 target_destination = location.find_neighbor_hex(board, target_object.hex, u)
-
+                # TODO: implement that one of the pieces may move onto the space currently occupied by the other.
                 player_can_move = player_destination and not(player_destination.occupant)
                 target_can_move = target_destination and not(target_destination.occupant)
                 if (player_can_move and target_can_move):

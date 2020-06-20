@@ -17,12 +17,12 @@ class Hex(object):
         )
 
     def toggle_aura(self):
-        if self.aura == None:
-            self.aura = "Dark"
-        elif self.aura == "Dark":
+        if self.aura == "Dark":
             self.aura = "Light"
         elif self.aura == "Light":
-            self.aura = None
+            self.aura = "Dark"
+        elif self.aura == None:
+            pass
         else:
             raise NameError('Hex cannot have aura value "{}".'.format(self.aura))
 
