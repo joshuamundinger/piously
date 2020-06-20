@@ -9,11 +9,11 @@ from backend.player import Player
 from backend.room import Room
 import backend.location as location
 from backend.spell import (
-    Priestess, 
+    Priestess,
     Purify,
     Imposter,
     Imprint,
-    Opportunist, 
+    Opportunist,
     Overwork,
     Usurper,
     Upset,
@@ -62,16 +62,16 @@ class Board(object):
         ]
         self.rooms = [
             #P
-            Room(np.matrix([0,0,0]), 
+            Room('P', np.matrix([0,0,0]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([0,1,-1]),
                     np.matrix([0,-1,1])
                 ], self.spells[0], self.spells[1]),
             #I
-            Room(np.matrix([2,-2,0]),
-                [   np.matrix([0,-1,1]),
-                    np.matrix([0,-2,2]),
-                    np.matrix([0,-3,3])
+            Room('I', np.matrix([2,-2,0]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([0,2,-2]),
+                    np.matrix([0,3,-3])
                 ], self.spells[2], self.spells[3])
         ]
 
@@ -80,8 +80,8 @@ class Board(object):
             faction = self.faction,
             actions = self.actions,
             players = display_list(self.players.values()),
-            spells = display_list(self.spells), 
-            artworks = display_list(self.artworks), 
+            spells = display_list(self.spells),
+            artworks = display_list(self.artworks),
         )
 
     def get_current_player(self):
@@ -143,7 +143,7 @@ class Board(object):
     def end_turn(self):
         """Reset board values for start of new turn"""
         self.actions = 3
-        [spell.untap() for spell in self.spells] 
+        [spell.untap() for spell in self.spells]
         self.faction = other_faction(self.faction)
 
     ##########################
@@ -226,7 +226,7 @@ class Board(object):
         elif string == '3':
             return self.rooms[0].hexes[2]
         elif string == '4':
-            return self.rooms[0].hexes[3] 
+            return self.rooms[0].hexes[3]
         # I
         elif string == '5':
             return self.rooms[1].hexes[0]
