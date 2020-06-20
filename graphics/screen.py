@@ -6,6 +6,7 @@ https://github.com/Mekire/hex_pygame_redit
 '''
 from sys import exit
 import pygame as pg
+from backend.helpers import other_faction
 
 BACKGROUND = pg.Color("white")
 SCREEN_SIZE = (600, 400)
@@ -22,6 +23,11 @@ ROOM_COLORS = {
     "S" : pg.Color("turquoise2"),
     "L" : pg.Color("yellowgreen"),
     "Y" : pg.Color("yellow2"),
+}
+
+FACTION_COLORS = {
+    "Dark" : pg.Color("black"),
+    "Light" : pg.Color("white"),
 }
 
 HEX_POINTS = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
@@ -91,7 +97,7 @@ class CursorHighlight(pg.sprite.Sprite):
             surface.blit(self.label_image, self.label_rect)
 
 class PiouslyApp(object):
-    def __init__(self, hex_maps):
+    def __init__(self):
         pg.init()
         pg.display.set_mode(SCREEN_SIZE)
 
@@ -99,19 +105,35 @@ class PiouslyApp(object):
         self.screen_rect = self.screen.get_rect()
         self.clock = pg.time.Clock()
         self.cursor = CursorHighlight()
-        self.tiles = self.make_map(hex_maps)
+        self.hex_data = None
+        self.tiles = None
+        self.player_data = None
+        self.artwork_data = None
+        self.aura_data = None
         self.done = False
         self.key = None
         self.click_hex = None
+        self.axial_min_x = 0
+        self.axial_min_y = 0
 
     def make_map(self, hexes):
         # hexes is a list of hashes each with
         #  'x': int, x-coord axial
         #  'y': int, y-coord axial
         #  'room': string, which room the hex is in
-
         tiles = pg.sprite.LayeredUpdates()
 
+        self.axial_min_x = min([hex['x'] for hex in hexes])
+        self.axial_min_y = min([hex['y'] for hex in hexes])
+
+        for hex in hexes:
+            name = '({}, {})'.format(hex['x'], hex['y'])
+            pos = self.axial_to_screen(hex['x'], hex['y'])
+            HexTile(pos, hex['room'], name, tiles)
+
+        self.tiles = tiles
+
+    def axial_to_screen(self, x, y):
         # put the (0, 0) hex a bit down and to the left of the top center
         start_x, start_y = self.screen_rect.midtop
         start_x -= 100
@@ -119,32 +141,81 @@ class PiouslyApp(object):
 
         # define the x, y offset of the next hex in the row/col
         # hardcoded to make sense based on HEX_POINTS
-        row_offset = -45, 22
+        row_offset = 12, 27
         col_offset = 57, 5
 
-        min_x = min([hex['x'] for hex in hexes])
-        min_y = min([hex['y'] for hex in hexes])
+        pos = (
+            start_x + row_offset[0]*(x - self.axial_min_x) + col_offset[0]*(y - self.axial_min_y),
+            start_y + row_offset[1]*(x - self.axial_min_x) + col_offset[1]*(y - self.axial_min_y),
+        )
+        return pos
 
-        for hex in hexes:
-            name = '({}, {})'.format(hex['x'], hex['y'])
-            pos = (
-                start_x + row_offset[0]*(hex['x'] - min_x) + col_offset[0]*(hex['y'] - min_y),
-                start_y + row_offset[1]*(hex['x'] - min_x) + col_offset[1]*(hex['y'] - min_y),
+    def draw_players(self):
+        # player_data is a list of hashes each with
+        #  'x': int, x-coord axial of player's hex
+        #  'y': int, y-coord axial of player's hex
+        #  'faction': string, player's faction
+        for player in self.player_data:
+            color = FACTION_COLORS[player['faction']]
+            other_color = FACTION_COLORS[other_faction(player['faction'])]
+            topleft = self.axial_to_screen(player['x'], player['y'])
+            center = (
+                int(topleft[0] + HEX_FOOTPRINT[0]/2),
+                int(topleft[1] + HEX_FOOTPRINT[1]/2),
             )
-            HexTile(pos, hex['room'], name, tiles)
+            radius = 10
+            pg.draw.circle(self.screen, other_color, center, radius+1)
+            pg.draw.circle(self.screen, color, center, radius)
 
-        return tiles
+    def draw_artworks(self):
+        # artwork_data is a list of hashes each with
+        #  'x': int, x-coord axial of artwork's hex
+        #  'y': int, y-coord axial of artwork's hex
+        #  'room': string, artwork's room
+        for artwork in self.artwork_data:
+            color = ROOM_COLORS[artwork['room']]
+            other_color = FACTION_COLORS["Dark"]
+            topleft = self.axial_to_screen(artwork['x'], artwork['y'])
+            center = (
+                int(topleft[0] + HEX_FOOTPRINT[0]/2),
+                int(topleft[1] + HEX_FOOTPRINT[1]/2),
+            )
+            radius = 10
+            pg.draw.circle(self.screen, other_color, center, radius+1)
+            pg.draw.circle(self.screen, color, center, radius)
+
+    def draw_auras(self):
+        # aura_data is a list of hashes each with
+        #  'x': int, x-coord axial of player's hex
+        #  'y': int, y-coord axial of player's hex
+        #  'faction': string, player's faction
+        for aura in self.aura_data:
+            color = FACTION_COLORS[aura['faction']]
+            other_color = FACTION_COLORS[other_faction(aura['faction'])]
+            topleft = self.axial_to_screen(aura['x'], aura['y'])
+            center = (
+                int(topleft[0] + HEX_FOOTPRINT[0]/2),
+                int(topleft[1] + HEX_FOOTPRINT[1]/2),
+            )
+            radius = 15
+            pg.draw.circle(self.screen, other_color, center, radius+1)
+            pg.draw.circle(self.screen, color, center, radius)
 
     def update(self):
-        for sprite in self.tiles:
-            if sprite.layer != sprite.rect.bottom:
-                self.tiles.change_layer(sprite, sprite.rect.bottom)
-        self.cursor.update(pg.mouse.get_pos(), self.tiles, self.screen_rect)
+        if self.tiles:
+            for sprite in self.tiles:
+                if sprite.layer != sprite.rect.bottom:
+                    self.tiles.change_layer(sprite, sprite.rect.bottom)
+            self.cursor.update(pg.mouse.get_pos(), self.tiles, self.screen_rect)
 
     def render(self):
         self.screen.fill(BACKGROUND)
-        self.tiles.draw(self.screen)
-        self.cursor.draw(self.screen)
+        if self.tiles:
+            self.tiles.draw(self.screen)
+            self.draw_auras()
+            self.draw_players()
+            self.draw_artworks()
+            self.cursor.draw(self.screen)
         pg.display.update()
 
     def event_loop(self):
@@ -157,6 +228,7 @@ class PiouslyApp(object):
                # TODO: write handle_click(event.pos) to set self.click_hex
            elif event.type == pg.KEYDOWN:
                self.key = pg.key.name(event.key)
+               print("You entered: ({})".format(self.key))
 
     def loop_once(self):
         self.event_loop()
