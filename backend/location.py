@@ -26,18 +26,25 @@ def find_hex(board, location):
                 return test_hex
     return None
 
-def find_adjacent_hexes(board, starting_hex):
+def find_neighbor_hex(board, starting_hex, direction):
+    #find the hex at direction relative to direction
+    return find_hex(board, starting_hex.location + direction)
+
+def find_adjacent_hexes(board, starting_hex, return_nones = False):
     #given a hex, return the (up to six) neighboring hexes
-    return [ item for item in  [find_hex(board, starting_hex.location + u) for u in unit_directions] if item != None]
+    return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if (item != None or return_nones)]
 
 def leap_eligible(board, hex1, hex2):
+    if hex1 == hex2:
+        return False
     #returns true if two pieces on hex1 and hex2 can Leap, and false otherwise
     try:
         displacement = hex1.location - hex2.location
     except AttributeError:
         print("You tried to leap, but passed nonexistent hexes or locations. Shame on you.")
         return False
-    number_of_tiles = np.gcd.reduce([x for x in displacement.flat if x != 0])
+    nonzero_entries = [x for x in displacement.flat if x != 0]
+    number_of_tiles = np.gcd.reduce(nonzero_entries)
     u = (1/number_of_tiles) * displacement
     return not (None in [find_hex(board, hex2.location + i*u) for i in range(number_of_tiles)])
 
@@ -77,6 +84,16 @@ def linked_hexes(board, starting_hex):
 def adjacent_linked_region(board, starting_hex):
     # search for linked hexes, check if they are the same aura, and return the boundary
     return linked_search(board, starting_hex, True, True)
+
+def linked_rooms(board, starting_hex):
+    linked_hex = linked_hexes(board,starting_hex)
+    linked_room = []
+    for room in board.rooms:
+        for test_hex in room.hexes:
+            if test_hex in linked_hex:
+                linked_room.append(room)
+                break
+    return linked_room
 
 def neighboring_region(board, hex_list):
     neighbors = []

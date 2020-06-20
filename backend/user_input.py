@@ -57,7 +57,14 @@ def choose_hex(board):
 Params: list of objects
 Returns: chosen object
 '''
-def choose_from_list(ls):
+def choose_from_list(ls, prompt_text = None):
+    if len(ls) == 0:
+        return None
+    elif len(ls) == 1:
+        return ls[0]
+    if prompt_text:
+        # print optional prompt
+        print(prompt_text)
     while True:
         for idx, obj in enumerate(ls):
             print(' ({}) {}'.format(idx + 1, obj))

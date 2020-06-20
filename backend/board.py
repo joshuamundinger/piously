@@ -3,6 +3,7 @@ Overall board class to store past and current game state.
 """
 import numpy as np
 
+from backend.errors import InvalidMove
 from backend.artwork import Artwork
 from backend.helpers import display_list, other_faction
 from backend.player import Player
@@ -87,6 +88,19 @@ class Board(object):
     def get_current_player(self):
         return self.players[self.faction]
 
+    def get_opposing_player(self):
+        if self.faction == 'Light':
+            return self.players['Dark']
+        else:
+            return self.players['Light']
+
+    def get_placed_objects(self):
+        # return all objects currently placed on board
+        return [art for art in self.artworks if art.hex] + [player for player in self.players.values() if player.hex]
+
+    def get_placed_non_player_objects(self):
+        return [obj for obj in self.get_placed_objects() if obj != self.get_current_player()]        
+
     ######################
     # board layout methods
     ######################
@@ -145,6 +159,27 @@ class Board(object):
         self.actions = 3
         [spell.untap() for spell in self.spells]
         self.faction = other_faction(self.faction)
+
+    #####################################
+    # dynamic gameplay methods
+    ##################################### 
+
+    def move_object(self, occupant, from_hex=None, to_hex=None):
+            # order matters here, updating occupant.hex last make it ok for from_hex to be occupant.hex initially
+            if from_hex != None:
+                from_hex.occupant = None
+            if to_hex != None:
+                if to_hex.occupant != None:
+                    raise InvalidMove('You\'re trying to move onto an occupied hex.')
+                to_hex.occupant = occupant
+            occupant.hex = to_hex
+    
+    def swap_object(self, object1, object2):
+        hex_1 = object1.hex
+        object1.hex = object2.hex
+        object2.hex = hex_1
+        object2.hex.occupant = object2
+        object1.hex.occupant = object1
 
     ##########################
     # string to object methods
