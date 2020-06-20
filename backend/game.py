@@ -12,9 +12,9 @@ import copy
 
 class Game(object):
     def __init__(self, start_faction):
-        self.old_board = Board(start_faction)
+        self.screen = PiouslyApp()
+        self.old_board = Board(self.screen, start_faction)
         self.current_board = copy.deepcopy(self.old_board)
-        self.graphics = PiouslyApp(self.get_hex_maps_to_draw())
 
     def __str__(self):
         return str(self.current_board)
@@ -25,17 +25,56 @@ class Game(object):
     def get_current_player(self):
         return self.current_board.get_current_player()
 
-    def get_hex_maps_to_draw(self):
+    def flush_hex_data(self):
         hex_maps = []
-        b = self.current_board
-        for room in b.rooms:
+        for room in self.current_board.rooms:
             for hex in room.hexes:
                 hex_maps.append({
                     'x': hex.location.flat[0],
                     'y': hex.location.flat[1],
                     'room': hex.room.name[0],
                 })
-        return hex_maps
+        self.screen.make_map(hex_maps)
+
+
+    def flush_player_data(self):
+        data = []
+        for player in self.current_board.players.values():
+            if player.hex:
+                data.append({
+                    'x': player.hex.location.flat[0],
+                    'y': player.hex.location.flat[1],
+                    'faction': player.faction,
+                })
+        self.screen.player_data = data
+
+    def flush_artwork_data(self):
+        data = []
+        for artwork in self.current_board.artworks:
+            if artwork.hex:
+                data.append({
+                    'x': artwork.hex.location.flat[0],
+                    'y': artwork.hex.location.flat[1],
+                    'room': artwork.color[0],
+                })
+        self.screen.artwork_data = data
+
+    def flush_aura_data(self):
+        data = []
+        for room in self.current_board.rooms:
+            for hex in room.hexes:
+                if hex.aura:
+                    data.append({
+                        'x': hex.location.flat[0],
+                        'y': hex.location.flat[1],
+                        'faction': hex.aura,
+                    })
+        self.screen.aura_data = data
+
+    def flush_gamepieces(self):
+        self.flush_aura_data()
+        self.flush_player_data()
+        self.flush_artwork_data()
 
     def move(self):
         if self.current_board.actions < 1:
@@ -46,13 +85,13 @@ class Game(object):
         adj_hexes_wo_objs = [h for h in adj_hexes if h.occupant == None]
         # TODO: make functions in location.py to do ^ filtering + its opposite
 
-        hex = screen_input.choose_from_list(self.graphics, adj_hexes_wo_objs)
+        hex = screen_input.choose_from_list(self.screen, adj_hexes_wo_objs)
         if not hex:
             raise InvalidMove('There is no adjacent hex for you to move')
         else:
             print('Moving to {}'.format(hex))
-            
-        
+
+
         self.current_board.actions -= 1
         self.current_board.move_object(player, from_hex=player.hex, to_hex=hex)
 
@@ -97,7 +136,7 @@ class Game(object):
         if len(eligible_artworks) == 0:
             raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
 
-        hex = screen_input.choose_from_list(self.graphics, adj_hexes_wo_objs)
+        hex = screen_input.choose_from_list(self.screen, adj_hexes_wo_objs)
         if not hex:
             raise InvalidMove('There are no unoccupied hexes on which to drop')
         else:
@@ -105,19 +144,19 @@ class Game(object):
 
 
         # prompt for artwork choice if needed
-        artwork = screen_input.choose_from_list(self.graphics, eligible_artworks)
+        artwork = screen_input.choose_from_list(self.screen, eligible_artworks)
         if not artwork:
             raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
         else:
             print('Dropping {}'.format(artwork))
-            
+
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, to_hex=hex)
 
     def pick_up(self):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot pick up because you have no more actions')
-        
+
         # get list of eligible hexes
         player = self.get_current_player()
         adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
@@ -128,23 +167,22 @@ class Game(object):
         for artwork in self.current_board.artworks:
             if artwork.faction == faction and artwork.hex in adj_hexes:
                 eligible_artworks.append(artwork)
-        
+
         # prompt for artwork choice if needed
-        artwork = screen_input.choose_from_list(self.graphics, eligible_artworks)
+        artwork = screen_input.choose_from_list(self.screen, eligible_artworks)
         if not artwork:
             raise InvalidMove('{} does not have any adjacent artworks to pick up'.format(faction))
         print('Picking up {}'.format(artwork))
-        
+
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, from_hex=artwork.hex)
 
     def cast_spell(self):
-        spell = screen_input.choose_spell(self.graphics, self.current_board)
+        spell = screen_input.choose_spell(self.screen, self.current_board)
 
         # TODO: need to prompt for any needed input and properly fill in operations
         # or could implement this on each spell individually
-        operations = []
-        spell.cast(self.current_board, operations)
+        spell.cast(self.current_board)
 
     def reset_turn(self):
         self.current_board = copy.deepcopy(self.old_board)
@@ -156,7 +194,7 @@ class Game(object):
 
             spells = [a_spell, b_spell, None]
             print('You have the option to choose a spell (if you do, your opponent will recieve the other spell)')
-            chosen_spell = screen_input.choose_from_list(self.graphics, spells)
+            chosen_spell = screen_input.choose_from_list(self.screen, spells)
 
             if chosen_spell != None:
                 a_spell.faction = other_faction(self.current_board.faction)
@@ -198,13 +236,16 @@ class Game(object):
     def play(self):
         # set up board
         self.place_rooms()
+        self.flush_hex_data()
         self.place_players()
+        self.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
 
         # enter main game loop
         while not self.is_game_over():
             # print(self)
-            move_type = screen_input.choose_move(self.graphics, self.current_board)
+            self.flush_gamepieces()
+            move_type = screen_input.choose_move(self.screen)
             try:
                 if move_type == 'move':
                     self.move()

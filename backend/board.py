@@ -25,18 +25,20 @@ from backend.spell import (
     Yeoman,
     Yoke,
 )
+from copy import deepcopy
 
 class Board(object):
-    def __init__(self, start_faction):
+    def __init__(self, screen, start_faction, actions=3, players=None, artworks=None, spells=None, rooms=None):
+        self.screen = screen
         self.faction = start_faction
-        self.players = {
+        self.actions = actions
+        self.players = players or {
             'Dark': Player('Dark'),
             'Light': Player('Light'),
         }
-        self.actions = 3
 
         # IDEA: what if each Room inits it's spells and each a_spell inits it's artworks and neither are stored directly on board
-        self.artworks = [
+        self.artworks = artworks or [
             Artwork('Pink  '), # weird spacing is intentional so that they print nicely with \t
             Artwork('Indigo'),
             Artwork('Orange'),
@@ -45,7 +47,7 @@ class Board(object):
             Artwork('Lime  '),
             Artwork('Yellow'),
         ]
-        self.spells = [
+        self.spells = spells or [
             Priestess(self.artworks[0]),
             Purify(),
             Imposter(self.artworks[1]),
@@ -61,7 +63,7 @@ class Board(object):
             Yeoman(self.artworks[6]),
             Yoke(),
         ]
-        self.rooms = [
+        self.rooms = rooms or [
             #P
             Room('P', np.matrix([0,0,0]),
                 [   np.matrix([1,0,-1]),
@@ -85,21 +87,29 @@ class Board(object):
             artworks = display_list(self.artworks),
         )
 
+    def __deepcopy__(self, memo):
+        return Board(
+            self.screen,
+            self.faction,
+            self.actions,
+            deepcopy(self.players, memo),
+            deepcopy(self.artworks, memo),
+            deepcopy(self.spells, memo),
+            deepcopy(self.rooms, memo),
+        )
+
     def get_current_player(self):
         return self.players[self.faction]
 
     def get_opposing_player(self):
-        if self.faction == 'Light':
-            return self.players['Dark']
-        else:
-            return self.players['Light']
+        return self.players[other_faction(self.faction)]
 
     def get_placed_objects(self):
         # return all objects currently placed on board
         return [art for art in self.artworks if art.hex] + [player for player in self.players.values() if player.hex]
 
     def get_placed_non_player_objects(self):
-        return [obj for obj in self.get_placed_objects() if obj != self.get_current_player()]        
+        return [obj for obj in self.get_placed_objects() if obj != self.get_current_player()]
 
     ######################
     # board layout methods
@@ -162,7 +172,7 @@ class Board(object):
 
     #####################################
     # dynamic gameplay methods
-    ##################################### 
+    #####################################
 
     def move_object(self, occupant, from_hex=None, to_hex=None):
             # order matters here, updating occupant.hex last make it ok for from_hex to be occupant.hex initially
@@ -173,7 +183,7 @@ class Board(object):
                     raise InvalidMove('You\'re trying to move onto an occupied hex.')
                 to_hex.occupant = occupant
             occupant.hex = to_hex
-    
+
     def swap_object(self, object1, object2):
         hex_1 = object1.hex
         object1.hex = object2.hex
