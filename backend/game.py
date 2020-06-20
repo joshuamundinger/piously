@@ -6,13 +6,15 @@ from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
-import backend.user_input as user_input
+from graphics.board import PiouslyApp
+import backend.screen_input as screen_input
 import copy
 
 class Game(object):
     def __init__(self, start_faction):
         self.old_board = Board(start_faction)
         self.current_board = copy.deepcopy(self.old_board)
+        self.graphics = PiouslyApp(self.get_hex_maps_to_draw())
 
     def __str__(self):
         return str(self.current_board)
@@ -22,6 +24,18 @@ class Game(object):
 
     def get_current_player(self):
         return self.current_board.get_current_player()
+
+    def get_hex_maps_to_draw(self):
+        hex_maps = []
+        b = self.current_board
+        for room in b.rooms:
+            for hex in room.hexes:
+                hex_maps.append({
+                    'x': hex.location.flat[0],
+                    'y': hex.location.flat[1],
+                    'room': hex.room.name[0],
+                })
+        return hex_maps
 
     def move(self):
         if self.current_board.actions < 1:
@@ -38,8 +52,8 @@ class Game(object):
             hex = adj_hexes_wo_objs[0]
             print('Moving to {}'.format(hex))
         else:
-            hex = user_input.choose_from_list(adj_hexes_wo_objs)
-        
+            hex = screen_input.choose_from_list(self.graphics, adj_hexes_wo_objs)
+
         self.current_board.actions -= 1
         self.move_object(player, from_hex=player.hex, to_hex=hex)
 
@@ -67,14 +81,14 @@ class Game(object):
     def drop(self):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot drop because you have no more actions')
-        
+
         # get list of eligible hexes
         player = self.get_current_player()
         adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
         adj_hexes_wo_objs = [h for h in adj_hexes if h.occupant == None]
         if len(adj_hexes_wo_objs) == 0:
             raise InvalidMove('There is no adjacent hex where you can drop')
-        
+
         # get list of eligible artworks
         faction = self.current_board.faction
         eligible_artworks = []
@@ -89,15 +103,15 @@ class Game(object):
             hex = adj_hexes_wo_objs[0]
             print('Dropping on {}'.format(hex))
         else:
-            hex = user_input.choose_from_list(adj_hexes_wo_objs)
+            hex = screen_input.choose_from_list(self.graphics, adj_hexes_wo_objs)
 
         # prompt for artwork choice if needed
         if len(eligible_artworks) == 1:
             artwork = eligible_artworks[0]
             print('Dropping {}'.format(artwork))
         else:
-            artwork = user_input.choose_from_list(eligible_artworks)
-        
+            artwork = screen_input.choose_from_list(self.graphics, eligible_artworks)
+
         self.current_board.actions -= 1
         self.move_object(artwork, to_hex=hex)
 
@@ -105,11 +119,11 @@ class Game(object):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot pick up because you have no more actions')
         print('You want to pick up but that\'s not implemented yet... skipping')
-        
+
         # get list of eligible hexes
         player = self.get_current_player()
         adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
-        
+
         # get list of eligible artworks
         faction = self.current_board.faction
         eligible_artworks = []
@@ -124,18 +138,18 @@ class Game(object):
             artwork = eligible_artworks[0]
             print('Picking up {}'.format(artwork))
         else:
-            artwork = user_input.choose_from_list(eligible_artworks)
-        
+            artwork = screen_input.choose_from_list(self.graphics, eligible_artworks)
+
         self.current_board.actions -= 1
         self.move_object(artwork, from_hex=artwork.hex)
 
     def cast_spell(self):
-        spell = user_input.choose_spell(self.current_board)
+        spell = screen_input.choose_spell(self.graphics, self.current_board)
 
         # TODO: need to prompt for any needed input and properly fill in operations
         # or could implement this on each spell individually
         operations = []
-        spell.cast(self.current_board, operations) 
+        spell.cast(self.current_board, operations)
 
     def reset_turn(self):
         self.current_board = copy.deepcopy(self.old_board)
@@ -144,7 +158,10 @@ class Game(object):
         a_spell = self.get_current_player().hex.room.artwork
         if a_spell.faction == None:
             b_spell = self.get_current_player().hex.room.bewitchment
-            chosen_spell = user_input.choose_spell_to_take(a_spell, b_spell)
+
+            spells = [a_spell, b_spell, None]
+            print('You have the option to choose a spell (if you do, your opponent will recieve the other spell)')
+            chosen_spell = screen_input.choose_from_list(self.graphics, spells)
 
             if chosen_spell != None:
                 a_spell.faction = other_faction(self.current_board.faction)
@@ -173,7 +190,7 @@ class Game(object):
 
     def place_players(self):
         print('choosing player starting postiton is not implented yet... initializing positions')
-        
+
         light_player = self.current_board.players['Light']
         dark_player = self.current_board.players['Dark']
         hex1 = self.current_board.rooms[0].hexes[0]
@@ -190,38 +207,43 @@ class Game(object):
             to_hex.occupant = occupant
         occupant.hex = to_hex
 
+    def play(self):
+        # set up board
+        self.place_rooms()
+        self.place_players()
+        self.sync_boards() # needed so that restart_turn works correctly on the first turn
+
+        # enter main game loop
+        while not self.is_game_over():
+            # print(self)
+            move_type = screen_input.choose_move(self.graphics, self.current_board)
+            try:
+                if move_type == 'move':
+                    self.move()
+                elif move_type == 'bless':
+                    self.bless()
+                elif move_type == 'drop':
+                    self.drop()
+                elif move_type == 'pick up':
+                    self.pick_up()
+                elif move_type == 'cast spell':
+                    self.cast_spell()
+                elif move_type == 'end turn':
+                    self.end_turn()
+                elif move_type == 'reset turn':
+                    self.reset_turn()
+                elif move_type == 'end':
+                    current_faction = self.current_board.faction
+                    print('{} forefits, {} wins!'.format(current_faction, other_faction(current_faction)))
+                    break
+                print(self)
+            except InvalidMove as move:
+                print(self)
+                print('{} '.format(move))
+
+        print('Goodbye :)\n')
+
+
 if __name__ == "__main__":
     piously = Game("Dark")
-    
-    # set up board
-    piously.place_rooms()
-    piously.place_players()
-    piously.sync_boards() # needed so that restart_turn works correctly on the first turn
-
-    # enter main game loop
-    while not piously.is_game_over():
-        print(piously)
-        move_type = user_input.choose_move(piously.current_board)
-        try: 
-            if move_type == 'move':
-                piously.move()
-            elif move_type == 'bless':
-                piously.bless()
-            elif move_type == 'drop':
-                piously.drop()
-            elif move_type == 'pick up':
-                piously.pick_up()
-            elif move_type == 'cast spell':
-                piously.cast_spell()
-            elif move_type == 'end turn':
-                piously.end_turn()
-            elif move_type == 'reset turn':
-                piously.reset_turn()
-            elif move_type == 'end':
-                current_faction = piously.current_board.faction
-                print('{} forefits, {} wins!'.format(current_faction, other_faction(current_faction)))
-                break
-        except InvalidMove as move:
-            input('{} '.format(move))
-    
-    print('Goodbye :)\n')
+    piously.play()
