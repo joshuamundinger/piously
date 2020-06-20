@@ -64,18 +64,57 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = rooms or [
-            #P
+            # P
             Room('P', np.matrix([0,0,0]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([0,1,-1]),
                     np.matrix([0,-1,1])
-                ], self.spells[0], self.spells[1]),
-            #I
+                ], self.spells[0], self.spells[1]
+            ),
+            # I
             Room('I', np.matrix([2,-2,0]),
                 [   np.matrix([0,1,-1]),
                     np.matrix([0,2,-2]),
                     np.matrix([0,3,-3])
-                ], self.spells[2], self.spells[3])
+                ], self.spells[2], self.spells[3]
+            ),
+            # O
+            Room('O', np.matrix([3,-1,-2]),
+                [   np.matrix([0,-1,1]),
+                    np.matrix([1,-1,0]),
+                    np.matrix([1,-2,1])
+                ],  self.spells[4], self.spells[5]
+            ),
+            # U 
+            Room('U', np.matrix([3,0,-3]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([1,1,-2]),
+                    np.matrix([2,0,-2])
+                ],  self.spells[6],self.spells[7]
+            
+            ),
+            # S
+            Room('S', np.matrix([6,-3,-3]),
+                [   np.matrix([1,0,-1]),
+                    np.matrix([1,1,-2]),
+                    np.matrix([2,1,-3])
+                ],  self.spells[8], self.spells[9]
+            ),
+            # L
+            Room('L', np.matrix([5,-3,-2]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([0,2,-2]),
+                    np.matrix([1,2,-3])
+                ], self.spells[10], self.spells[11]
+            ),
+            # Y 
+            Room('Y', np.matrix([7,0,-7]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([1,-1,0]),
+                    np.matrix([-1,0,1])
+                ], self.spells[12], self.spells[13]
+            
+            )
         ]
 
     def __str__(self):
@@ -333,11 +372,3 @@ class Board(object):
             return None
         else:
             raise NameError('Invalid hex string {}'.format(string))
-
-if __name__ == "__main__":
-    b = Board("Dark")
-    b.actions -= 1
-    # b.spells[4].cast(b, 'q')
-    print(b)
-    b.end_turn()
-    print(b)
