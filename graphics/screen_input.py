@@ -4,6 +4,7 @@ Some of them are just to make testing easier
 """
 
 def get_keypress(screen):
+    screen.key = None
     while True:
         screen.loop_once()
         if screen.key == None:
@@ -12,6 +13,17 @@ def get_keypress(screen):
           keypress = screen.key
           screen.key = None
           return keypress
+
+def get_click(screen):
+    screen.click_hex = None
+    while True:
+        screen.loop_once()
+        if screen.click_hex == None:
+            continue
+        else:
+          axial_pos = screen.click_hex
+          screen.click_hex = None
+          return axial_pos
 
 def choose_move(screen):
     '''
@@ -63,16 +75,28 @@ def choose_from_list(screen, ls, prompt_text=None):
         except (ValueError, IndexError):
             print('Please a number 1-{}'.format(len(ls) + 1))
 
-'''
-Params: Board object to get spell from
-Returns: chosen Spell object
-# TODO: consolidate use of choose_spell with choose_from_list
-'''
-def choose_spell(screen, board):
+"""
+Choose a location based on clicking a hex
+
+Params:
+ - screen: a PiouslyApp() UI object
+ - axial_pos: a list of tuples (x-coord, y-coord)
+ - prompt_text: a string to print to give the user extra info
+
+Returns: index of the chosen location
+"""
+def choose_location(screen, axial_pos, prompt_text="Click a location"):
+    if len(axial_pos) == 0:
+        return None
+    elif len(axial_pos) == 1:
+        return 0
+    if prompt_text:
+        # print optional prompt
+        print(prompt_text)
+
     while True:
-        print('> What spell do you want? ')
-        spell_str = get_keypress(screen)
-        try:
-            return board.str_to_spell(spell_str)
-        except NameError:
-            print('Please enter one of [12 56 qw ty as gh zx] (in each pair first one is artwork, second is bewitchment)')
+        pos = get_click(screen)
+        if pos in axial_pos:
+            return  axial_pos.index(pos)
+        else:
+            print('Please click one of {}'.format(axial_pos))

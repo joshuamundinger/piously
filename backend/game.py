@@ -4,7 +4,7 @@ Overall game class to track info related to turns and the board.
 from backend.board import Board
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
-from backend.location import find_adjacent_hexes
+from backend.location import find_adjacent_hexes, location_to_axial
 from backend.operation import Operation
 from graphics.screen import PiouslyApp
 import graphics.screen_input as screen_input
@@ -85,12 +85,13 @@ class Game(object):
         adj_hexes_wo_objs = [h for h in adj_hexes if h.occupant == None]
         # TODO: make functions in location.py to do ^ filtering + its opposite
 
-        hex = screen_input.choose_from_list(self.screen, adj_hexes_wo_objs)
-        if not hex:
+        coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
+        hex_idx = screen_input.choose_location(self.screen, coords)
+        if hex_idx == None:
             raise InvalidMove('There is no adjacent hex for you to move')
-        else:
-            print('Moving to {}'.format(hex))
 
+        hex = adj_hexes_wo_objs[hex_idx]
+        print('Moving to {}'.format(hex))
 
         self.current_board.actions -= 1
         self.current_board.move_object(player, from_hex=player.hex, to_hex=hex)
@@ -136,12 +137,13 @@ class Game(object):
         if len(eligible_artworks) == 0:
             raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
 
-        hex = screen_input.choose_from_list(self.screen, adj_hexes_wo_objs)
-        if not hex:
-            raise InvalidMove('There are no unoccupied hexes on which to drop')
-        else:
-            print('Dropping on {}'.format(hex))
-
+        # prompt for hex choice if needed
+        coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
+        hex_idx = screen_input.choose_location(self.screen, coords)
+        if hex_idx == None:
+            raise InvalidMove('There is no adjacent hex where you can')
+        hex = adj_hexes_wo_objs[hex_idx]
+        print('Dropping on {}'.format(hex))
 
         # prompt for artwork choice if needed
         artwork = screen_input.choose_from_list(self.screen, eligible_artworks)
@@ -164,24 +166,33 @@ class Game(object):
         # get list of eligible artworks
         faction = self.current_board.faction
         eligible_artworks = []
+        coords = [] # coordinates of eligible_artworks
         for artwork in self.current_board.artworks:
             if artwork.faction == faction and artwork.hex in adj_hexes:
                 eligible_artworks.append(artwork)
+                coords.append(location_to_axial(artwork.hex.location))
 
         # prompt for artwork choice if needed
-        artwork = screen_input.choose_from_list(self.screen, eligible_artworks)
-        if not artwork:
+        artwork_idx = screen_input.choose_location(self.screen, coords)
+        if artwork_idx == None:
             raise InvalidMove('{} does not have any adjacent artworks to pick up'.format(faction))
+
+        artwork = eligible_artworks[artwork_idx]
         print('Picking up {}'.format(artwork))
 
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, from_hex=artwork.hex)
 
     def cast_spell(self):
-        spell = screen_input.choose_spell(self.screen, self.current_board)
-
-        # TODO: need to prompt for any needed input and properly fill in operations
-        # or could implement this on each spell individually
+        faction = self.current_board.faction
+        eligible_spells = []
+        for spell in self.current_board.spells:
+            if spell.faction == faction:
+                if not spell.tapped:
+                    eligible_spells.append(spell)
+        spell = screen_input.choose_from_list(self.screen, eligible_spells)
+        if not spell:
+            raise InvalidMove('{} does not have untapped spells'.format(faction))
         spell.cast(self.current_board)
 
     def reset_turn(self):
@@ -240,6 +251,7 @@ class Game(object):
         self.place_players()
         self.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
+        print(self) # print starting board
 
         # enter main game loop
         while not self.is_game_over():

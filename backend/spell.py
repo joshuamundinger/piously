@@ -5,7 +5,7 @@ who owns it, and whether it has been used this turn
 from backend.errors import InvalidMove
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
-from graphics.screen_input import choose_spell, choose_from_list
+from graphics.screen_input import choose_from_list
 from copy import deepcopy
 import backend.location as location
 
@@ -264,13 +264,19 @@ class Opportunist(Spell):
     def cast(self, board, spell_str=None):
         self._validate_spell_status(board)
 
-        # use spell_str if given, otherwise prompt for input
-        # TODO: add verification for chosen spell's room to be linked to the Opportunist
-        if spell_str == None or spell_str == []: # can be [] if called with Spell's params (board, operations)
-            print(self.description)
-            spell = choose_spell(board.screen, board, prompt_text = self.description)
-        else:
-            spell = spell_str
+        # TODO: remove all use of spell_str and Operation
+        if spell_str != None:
+            raise NotImplementedError('Opportunist doesnt support spell_str')
+
+        eligible_spells = []
+        for spell in board.spells:
+            if spell.faction == board.faction and spell.tapped:
+                # TODO: add verification for chosen spell's room to be linked to the Opportunist
+                eligible_spells.append(spell)
+        spell = screen_input.choose_from_list(self.screen, eligible_spells)
+        if not spell:
+            raise InvalidMove('There are no linked untapped spells')
+
         operations = [Operation('n', 'u', {'spell': spell})]
         self._shared_cast(board, operations)
 
