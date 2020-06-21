@@ -1,3 +1,4 @@
+from backend.location import location_to_axial
 """
 User input helper functions. Currently they all rely on keypresses, but eventaully they will be based on clicks on the UI.
 Some of them are just to make testing easier
@@ -100,3 +101,25 @@ def choose_location(screen, axial_pos, prompt_text="Click a location"):
             return  axial_pos.index(pos)
         else:
             print('Please click one of {}'.format(axial_pos))
+
+"""
+Choose a location from a list of hexes based on clicking a hex
+
+Params:
+ - hex_list: a list of hexes from which to choose
+ - return_index: boolean which determines if returns an index
+
+Returns: chosen hex, or index of chosen hex if return_index is True
+"""
+def choose_hexes(screen, hex_list, prompt_text="Choose a hex", return_index = False):
+    # if len(hex_list) == 0:
+    #     return None
+    # elif len(hex_list) == 1:
+    #     return 0
+    # get a list of axial coordinates for the hexes
+    axial_coordinates = [location_to_axial(x.location) for x in hex_list]
+    chosen_index = choose_location(screen, axial_coordinates, prompt_text)
+    if return_index:
+        return chosen_index
+    else:
+        return hex_list[chosen_index]
