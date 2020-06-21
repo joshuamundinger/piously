@@ -5,11 +5,13 @@ credit to Mekire on github for the starting code
 https://github.com/Mekire/hex_pygame_redit
 '''
 from sys import exit
+from numpy import average, sqrt, unique
 import pygame as pg
 from backend.helpers import other_faction
+from graphics.button import Button
 
 BACKGROUND = pg.Color("white")
-SCREEN_SIZE = (600, 400)
+SCREEN_SIZE = (800, 600)
 TRANSPARENT = (0, 0, 0, 0)
 FPS = 10 # 60
 FONT = "Arial"
@@ -18,7 +20,7 @@ ROOMS = ["P", "I", "O", "U", "S", "L", "Y"]
 
 ROOM_COLORS = {
     "P" : pg.Color("pink"),
-    "I" : pg.Color("mediumpurple4"),
+    "I" : pg.Color("slateblue"),
     "O" : pg.Color("orange"),
     "U" : pg.Color("saddlebrown"),
     "S" : pg.Color("turquoise2"),
@@ -31,17 +33,23 @@ FACTION_COLORS = {
     "Light" : pg.Color("white"),
 }
 
-HEX_POINTS = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
-HEX_FOOTPRINT = (65, 32)
+# define hex size and shape
+S = 12 # half side length of hex
+H = int(S*sqrt(3)) # half height of hex
+HEX_POINTS = (0, H), (S, 0), (3*S, 0), (4*S, H), (3*S, 2*H), (S, 2*H)
+HEX_FOOTPRINT = (4*S+2, 2*H+2) # adding one so that the outlines don't get cut off
+ROW_OFFSET = 0, 2*H
+COL_OFFSET = 3*S, H
+
+# define button size and shape
+BUTTON_SIZE = (SCREEN_SIZE[0]/4, 30)
 
 # TODO:
-# - make hexes regular
-# - display prompt text on screen
 # - display more board state (ex spells faction+tapped) on screen
 # - indicate valid hexes to click visually
 # - make the player object prettier
+#   - https://www.google.com/url?sa=i&url=https%3A%2F%2Fdlpng.com%2Fpng%2F4443758&psig=AOvVaw0OV8088DkAY7x2EFMcegXh&ust=1592797306363000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCODByL_-keoCFQAAAAAdAAAAABAM
 # - move some classes into seperate files
-# - make the board stay on the screen by taking the average x, y and putting it in the center
 # - improve handle_click to use mask not rect (right now it will sometimes take wrong hex)
 
 class HexTile(pg.sprite.Sprite):
@@ -50,7 +58,7 @@ class HexTile(pg.sprite.Sprite):
         super(HexTile, self).__init__(*groups)
         self.color =  ROOM_COLORS[room]
         self.image = self.make_tile(room)
-        self.rect = self.image.get_rect(topleft=pos)
+        self.rect = self.image.get_rect(center=pos)
         self.mask = self.make_mask()
         self.room = room
         self.layer = 0
@@ -100,7 +108,8 @@ class CursorHighlight(pg.sprite.Sprite):
 
             # to make text follow cursor pass midbottom=pos to get_rect
             # or midbottom=screen_rect.midbottom to put at bottom of screen
-            self.label_rect = self.label_image.get_rect()
+            text_pos = (0, 2*BUTTON_SIZE[1] + 5)
+            self.label_rect = self.label_image.get_rect(topleft=text_pos)
             self.label_rect.clamp_ip(screen_rect)
         else:
             self.hex = None
@@ -127,8 +136,35 @@ class PiouslyApp(object):
         self.done = False
         self.key = None
         self.click_hex = None
-        self.axial_min_x = 0
-        self.axial_min_y = 0
+        self.axial_avg_x = 0
+        self.axial_avg_y = 0
+
+        w, h = BUTTON_SIZE
+        # Rect((pos), (dim))
+        self.info = Button(
+            pg.Rect((0, SCREEN_SIZE[1]-2*h), (SCREEN_SIZE[0], 2*h)),
+            '', '', self.screen, disabled=True
+        )
+        self.board_state = Button(
+            pg.Rect((0, SCREEN_SIZE[1]-3*h), (SCREEN_SIZE[0], h)),
+            '', '', self.screen, disabled=True
+        )
+        self.action_buttons = [
+            Button(pg.Rect((0, 0), BUTTON_SIZE), 'move', '1', self.screen),
+            Button(pg.Rect((w, 0), BUTTON_SIZE), 'bless', '2', self.screen),
+            Button(pg.Rect((2*w, 0), BUTTON_SIZE), 'drop', '3', self.screen),
+            Button(pg.Rect((3*w, 0), BUTTON_SIZE), 'pick up', '4', self.screen),
+            Button(pg.Rect((0, h), BUTTON_SIZE), 'cast spell', 'q', self.screen),
+            Button(pg.Rect((w, h), BUTTON_SIZE), 'end turn', 'w', self.screen),
+            Button(pg.Rect((2*w, h), BUTTON_SIZE), 'reset turn', 'e', self.screen),
+            Button(pg.Rect((3*w, h), BUTTON_SIZE), 'end game', 'r', self.screen),
+        ]
+        self.buttons = self.action_buttons + [self.info, self.board_state]
+
+    def toggle_action_buttons(self):
+        new_state = not self.action_buttons[0].disabled
+        for button in self.action_buttons:
+            button.disabled = new_state
 
     def make_map(self, hexes):
         # hexes is a list of hashes each with
@@ -137,8 +173,8 @@ class PiouslyApp(object):
         #  'room': string, which room the hex is in
         tiles = pg.sprite.LayeredUpdates()
 
-        self.axial_min_x = min([hex['x'] for hex in hexes])
-        self.axial_min_y = min([hex['y'] for hex in hexes])
+        self.axial_avg_x = int(average(unique([hex['x'] for hex in hexes])))
+        self.axial_avg_y = int(average(unique([hex['y'] for hex in hexes])))
 
         for hex in hexes:
             pos = self.axial_to_screen(hex['x'], hex['y'])
@@ -147,19 +183,17 @@ class PiouslyApp(object):
         self.tiles = tiles
 
     def axial_to_screen(self, x, y):
-        # put the (0, 0) hex a bit down and to the left of the top center
-        start_x, start_y = self.screen_rect.midtop
-        start_x -= 100
-        start_y += 50
+        # put the (axial_avg_x, axial_avg_y) hex in the center
+        start_x, start_y = self.screen_rect.center
+        x_idx = x - self.axial_avg_x
+        y_idx = y - self.axial_avg_y
 
-        # define the x, y offset of the next hex in the row/col
-        # hardcoded to make sense based on HEX_POINTS
-        row_offset = 12, 27
-        col_offset = 57, 5
+        rowsize_x, rowsize_y = ROW_OFFSET
+        colsize_x, colsize_y = COL_OFFSET
 
         pos = (
-            start_x + row_offset[0]*(x - self.axial_min_x) + col_offset[0]*(y - self.axial_min_y),
-            start_y + row_offset[1]*(x - self.axial_min_x) + col_offset[1]*(y - self.axial_min_y),
+            start_x + (rowsize_x * x_idx) + (colsize_x * y_idx),
+            start_y + (rowsize_y * x_idx) + (colsize_y * y_idx),
         )
         return pos
 
@@ -171,11 +205,7 @@ class PiouslyApp(object):
         for player in self.player_data:
             color = FACTION_COLORS[player['faction']]
             other_color = FACTION_COLORS[other_faction(player['faction'])]
-            topleft = self.axial_to_screen(player['x'], player['y'])
-            center = (
-                int(topleft[0] + HEX_FOOTPRINT[0]/2),
-                int(topleft[1] + HEX_FOOTPRINT[1]/2),
-            )
+            center = self.axial_to_screen(player['x'], player['y'])
             radius = 10
             pg.draw.circle(self.screen, other_color, center, radius+1)
             pg.draw.circle(self.screen, color, center, radius)
@@ -184,15 +214,11 @@ class PiouslyApp(object):
         # artwork_data is a list of hashes each with
         #  'x': int, x-coord axial of artwork's hex
         #  'y': int, y-coord axial of artwork's hex
-        #  'room': string, artwork's room
+        #  'room': string, 1 letter name for artwork's room
         for artwork in self.artwork_data:
             color = ROOM_COLORS[artwork['room']]
             other_color = FACTION_COLORS["Dark"]
-            topleft = self.axial_to_screen(artwork['x'], artwork['y'])
-            center = (
-                int(topleft[0] + HEX_FOOTPRINT[0]/2),
-                int(topleft[1] + HEX_FOOTPRINT[1]/2),
-            )
+            center = self.axial_to_screen(artwork['x'], artwork['y'])
             radius = 10
             pg.draw.circle(self.screen, other_color, center, radius+1)
             pg.draw.circle(self.screen, color, center, radius)
@@ -205,16 +231,14 @@ class PiouslyApp(object):
         for aura in self.aura_data:
             color = FACTION_COLORS[aura['faction']]
             other_color = FACTION_COLORS[other_faction(aura['faction'])]
-            topleft = self.axial_to_screen(aura['x'], aura['y'])
-            center = (
-                int(topleft[0] + HEX_FOOTPRINT[0]/2),
-                int(topleft[1] + HEX_FOOTPRINT[1]/2),
-            )
+            center = self.axial_to_screen(aura['x'], aura['y'])
             radius = 15
             pg.draw.circle(self.screen, other_color, center, radius+1)
             pg.draw.circle(self.screen, color, center, radius)
 
     def update(self):
+        # TODO: only need to update button text
+        [button.update() for button in self.buttons]
         if self.tiles:
             for sprite in self.tiles:
                 if sprite.layer != sprite.rect.bottom:
@@ -223,6 +247,7 @@ class PiouslyApp(object):
 
     def render(self):
         self.screen.fill(BACKGROUND)
+        [button.draw() for button in self.buttons]
         if self.tiles:
             self.tiles.draw(self.screen)
             self.draw_auras()
@@ -233,14 +258,21 @@ class PiouslyApp(object):
 
     def event_loop(self):
         for event in pg.event.get():
-           if event.type == pg.QUIT:
-               self.done = True
-               self.close()
-           elif event.type == pg.MOUSEBUTTONDOWN:
+            if event.type == pg.QUIT:
+                self.done = True
+                self.close()
+
+            for button in self.buttons:
+                if button.handle_event(event):
+                    self.key = button.text
+                    print("Button: {}".format(button.text))
+                    return
+
+            if event.type == pg.MOUSEBUTTONDOWN:
                self.handle_click(event.pos)
-           elif event.type == pg.KEYDOWN:
-               self.key = pg.key.name(event.key)
-               print("You entered: ({})".format(self.key))
+            elif event.type == pg.KEYDOWN:
+                self.key = pg.key.name(event.key)
+                print("You entered: ({})".format(self.key))
 
     def loop_once(self):
         self.event_loop()
