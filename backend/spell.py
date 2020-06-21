@@ -10,9 +10,9 @@ import graphics.screen_input as screen_input
 from copy import deepcopy
 import backend.location as location
 
-""" 
+"""
 method to place auras on hexes, used in Imposter and Upset
-place_auras_on_hexes replaces the auras on the hexes in hex_list with 
+place_auras_on_hexes replaces the auras on the hexes in hex_list with
 those in aura_list, based on user input
 
 Params:
@@ -52,11 +52,7 @@ class Spell(object):
         self.tapped = False
 
     def __str__(self):
-        return '{name}\t({faction}:{tapped})'.format(
-            name = self.name,
-            faction = self.faction or 'No faction',
-            tapped = 'Tapped' if self.tapped else 'Untapped',
-        )
+        return self.name
 
     def untap(self):
         """Used in Board.end_turn to reset spell states"""
@@ -183,7 +179,7 @@ class Imposter(Spell):
         target_room = choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
-            prompt_text = 'Choose room to copy to',
+            prompt_text = 'Choose room to copy to:',
         )
         # get list of auras in artwork's room
         aura_list = [hex.aura for hex in self.artwork.hex.room.hexes if hex.aura]
@@ -464,7 +460,7 @@ class Yeoman(Spell):
         self._validate_artwork_status(board)
         # get linked rooms
         populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
-        # for each room, find the objects in the room. 
+        # for each room, find the objects in the room.
         # If there are no objects, remove the room from the list,
         # so that only populated rooms remain
         for room in populated_linked_rooms:
@@ -481,7 +477,7 @@ class Yeoman(Spell):
                 # assign a new location to the object on this hex, if there is one
                 # this assignment goes into object_location_pairs
                 if hex.occupant:
-                    # choose a hex not yet targeted 
+                    # choose a hex not yet targeted
                     target_hex_index = screen_input.choose_hexes(
                         board.screen,
                         [location.find_hex(board,loc) for loc in unoccupied_locations],
@@ -496,7 +492,7 @@ class Yeoman(Spell):
             for object_to_place, loc in object_location_pairs:
                 target_hex = location.find_hex(board, loc)
                 target_hex.occupant = object_to_place
-                object_to_place.hex = target_hex 
+                object_to_place.hex = target_hex
         self._toggle_tapped()
 
 
@@ -539,7 +535,7 @@ class Yoke(Spell):
                     possible_location_data.append((player_destination, target_destination))
             # if there's more than one direction, ask user for input
             player_direction = screen_input.choose_hexes(
-                board.screen, 
+                board.screen,
                 [x[0] for x in possible_location_data],
                 prompt_text="Choose the destination of the player"
             )

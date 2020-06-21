@@ -12,7 +12,6 @@ def get_keypress(screen):
             continue
         else:
           keypress = screen.key
-          screen.key = None
           return keypress
 
 def get_click(screen):
@@ -23,7 +22,6 @@ def get_click(screen):
             continue
         else:
           axial_pos = screen.click_hex
-          screen.click_hex = None
           return axial_pos
 
 def choose_move(screen):
@@ -31,50 +29,35 @@ def choose_move(screen):
     Params: none
     Returns: string representation of the move to make
     '''
-    while True:
-        print('> Would you like to (1) move (2) bless (3) drop (4) pick up (5) cast spell (6) end turn (7) restart turn or (8) end game? ')
-        move_type = get_keypress(screen)
 
-        if move_type == '1':
-            return 'move'
-        elif move_type == '2':
-            return 'bless'
-        elif move_type == '3':
-            return 'drop'
-        elif move_type == '4':
-            return 'pick up'
-        elif move_type == '5':
-            return 'cast spell'
-        elif move_type == '6':
-            return 'end turn'
-        elif move_type == '7':
-            return 'reset turn'
-        elif move_type == '8':
-            return 'end'
-        else:
-            print('Please enter a number 1-8')
+    screen.info.text = 'Select option (click button or use keybinding)'
+    return get_keypress(screen)
 
 '''
 Params: list of objects
 Returns: chosen object
 '''
-def choose_from_list(screen, ls, prompt_text=None):
+def choose_from_list(screen, ls, prompt_text='Choose one:'):
     if len(ls) == 0:
         return None
     elif len(ls) == 1:
         return ls[0]
-    if prompt_text:
-        # print optional prompt
-        print(prompt_text)
+
+    prompt = prompt_text
+    for idx, obj in enumerate(ls):
+        prompt += ' ({}) {}'.format(idx + 1, obj)
+
+    screen.info.text = prompt
+    screen.toggle_action_buttons()
     while True:
-        for idx, obj in enumerate(ls):
-            print(' ({}) {}'.format(idx + 1, obj))
-        print('> Which do you want? ')
         choice = get_keypress(screen)
         try:
-            return ls[int(choice) - 1]
+            ret = ls[int(choice) - 1]
+            screen.toggle_action_buttons()
+            screen.info.error = None
+            return ret
         except (ValueError, IndexError):
-            print('Please a number 1-{}'.format(len(ls) + 1))
+            screen.info.error = 'Please enter a number 1-{}'.format(len(ls))
 
 """
 Choose a location based on clicking a hex
@@ -91,16 +74,19 @@ def choose_location(screen, axial_pos, prompt_text="Click a location"):
         return None
     elif len(axial_pos) == 1:
         return 0
-    if prompt_text:
-        # print optional prompt
-        print(prompt_text)
 
+    # set prompt
+    screen.info.text = prompt_text
+    screen.toggle_action_buttons()
     while True:
         pos = get_click(screen)
         if pos in axial_pos:
-            return  axial_pos.index(pos)
+            ret = axial_pos.index(pos)
+            screen.info.error = None
+            screen.toggle_action_buttons()
+            return ret
         else:
-            print('Please click one of {}'.format(axial_pos))
+            screen.info.error = 'Please click one of {}'.format(axial_pos)
 
 """
 Choose a location from a list of hexes based on clicking a hex
