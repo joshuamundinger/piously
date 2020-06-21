@@ -166,7 +166,7 @@ class Game(object):
             b_spell = self.get_current_player().hex.room.bewitchment
 
             spells = [a_spell, b_spell, None]
-            print('You have the option to choose a spell (if you do, your opponent will recieve the other spell)')
+            # print('You have the option to choose a spell (if you do, your opponent will recieve the other spell)')
             chosen_spell = screen_input.choose_from_list(self.screen, spells)
 
             if chosen_spell != None:
@@ -182,7 +182,7 @@ class Game(object):
             raise InvalidMove('You cannot end turn with negative actions, please reset turn and try again')
         self.maybe_claim_spell()
 
-        print('ENDING TURN')
+        # print('ENDING TURN')
         self.current_board.end_turn()
         self.old_board = copy.deepcopy(self.current_board)
 
@@ -220,6 +220,7 @@ class Game(object):
             # print(self)
             self.current_board.flush_gamepieces()
             move_type = screen_input.choose_move(self.screen)
+            self.screen.info.error = None
             try:
                 if move_type == 'move':
                     self.move()
@@ -235,19 +236,19 @@ class Game(object):
                     self.end_turn()
                 elif move_type == 'reset turn':
                     self.reset_turn()
-                elif move_type == 'end':
+                elif move_type == 'end game':
                     current_faction = self.current_board.faction
-                    print('{} forefits, {} wins!'.format(current_faction, other_faction(current_faction)))
+                    self.screen.info.text = '{} forefits, {} wins!'.format(current_faction, other_faction(current_faction))
                     break
                 print(self)
             except InvalidMove as move:
                 print(self)
-                print('{} '.format(move))
+                self.screen.info.error = '{} '.format(move)
         # at this point, self.is_game_over()
         print("{} wins!".format(self.is_game_over()))
         print("Click on any hex to exit.")
         screen_input.get_click(self.screen)
-        print('Goodbye :)\n')        
+        print('Goodbye :)\n')
 
 
 if __name__ == "__main__":

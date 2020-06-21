@@ -64,65 +64,55 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = rooms or [
-            # P
-            Room('P', np.matrix([0,0,0]),
+            Room('P', np.matrix([1,2,-3]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([0,1,-1]),
                     np.matrix([0,-1,1])
                 ], self.spells[0], self.spells[1]
             ),
-            # I
             Room('I', np.matrix([2,-2,0]),
                 [   np.matrix([0,1,-1]),
                     np.matrix([0,2,-2]),
                     np.matrix([0,3,-3])
                 ], self.spells[2], self.spells[3]
             ),
-            # O
             Room('O', np.matrix([3,-1,-2]),
                 [   np.matrix([0,-1,1]),
                     np.matrix([1,-1,0]),
                     np.matrix([1,-2,1])
                 ],  self.spells[4], self.spells[5]
             ),
-            # U 
             Room('U', np.matrix([3,0,-3]),
                 [   np.matrix([0,1,-1]),
                     np.matrix([1,1,-2]),
                     np.matrix([2,0,-2])
                 ],  self.spells[6],self.spells[7]
-            
             ),
-            # S
             Room('S', np.matrix([6,-3,-3]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
                     np.matrix([2,1,-3])
                 ],  self.spells[8], self.spells[9]
             ),
-            # L
             Room('L', np.matrix([5,-3,-2]),
                 [   np.matrix([0,1,-1]),
                     np.matrix([0,2,-2]),
-                    np.matrix([1,2,-3])
+                    np.matrix([-1,3,-2])
                 ], self.spells[10], self.spells[11]
             ),
-            # Y 
             Room('Y', np.matrix([7,0,-7]),
                 [   np.matrix([0,1,-1]),
                     np.matrix([1,-1,0]),
                     np.matrix([-1,0,1])
                 ], self.spells[12], self.spells[13]
-            
             )
         ]
 
     def __str__(self):
-        return '\n***BOARD***\n{faction}\'s turn\nactions:{actions}\nplayers:{players}\nspells:{spells}\nartworks:{artworks}\n***********\n'.format(
+        return '\n***BOARD***\n{faction}\'s turn\nactions:{actions}\nplayers:{players}\nartworks:{artworks}\n***********\n'.format(
             faction = self.faction,
             actions = self.actions,
             players = display_list(self.players.values()),
-            spells = display_list(self.spells),
             artworks = display_list(self.artworks),
         )
 
@@ -142,6 +132,27 @@ class Board(object):
 
     def get_opposing_player(self):
         return self.players[other_faction(self.faction)]
+
+    def get_state_msg(self):
+        turn = '{}\'s turn'.format(self.faction)
+        actions = '{} action{} left'.format(
+            self.actions,
+            '' if self.actions == 1 else 's',
+        )
+        spells = ''
+        for spell in self.spells:
+            if spell.faction == self.faction:
+                spells += '[{}]{}{} '.format(
+                    'x' if spell.tapped else ' ',
+                    spell.name,
+                    '+' if spell.artwork and not spell.artwork.hex else '',
+                )
+        spells = spells or 'No spells'
+        return '{} : {} : {}'.format(turn, actions, spells)
+
+    def flush_msg(self, msg):
+        print('flush: {}'.format(msg))
+        self.screen.info.text = msg
 
     def get_placed_objects(self):
         # return all objects currently placed on board
@@ -283,12 +294,13 @@ class Board(object):
         self.flush_aura_data()
         self.flush_player_data()
         self.flush_artwork_data()
-
+        self.screen.board_state.text = self.current_board.get_state_msg()
 
 
     ##########################
     # string to object methods
     ##########################
+    # TODO: remove these when Operation is removed
 
     """
     Params: string should be one of [1 5 q t a g z d l]
