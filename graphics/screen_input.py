@@ -111,11 +111,7 @@ Params:
 
 Returns: chosen hex, or index of chosen hex if return_index is True
 """
-def choose_hexes(screen, hex_list, prompt_text="Choose a hex", return_index = False):
-    # if len(hex_list) == 0:
-    #     return None
-    # elif len(hex_list) == 1:
-    #     return 0
+def choose_hexes(screen, hex_list, prompt_text="Choose a hex:", return_index = False):
     # get a list of axial coordinates for the hexes
     axial_coordinates = [location_to_axial(x.location) for x in hex_list]
     chosen_index = choose_location(screen, axial_coordinates, prompt_text)

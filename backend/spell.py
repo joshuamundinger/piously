@@ -22,8 +22,7 @@ Params:
 """
 def place_auras_on_hexes(board, aura_list, hex_list):
     # clean the list of empty auras
-    while None in aura_list:
-        aura_list.remove(None)
+    aura_list = [aura for aura in aura_list if aura]
     if len(aura_list) > len(hex_list):
         raise RuntimeError('Pidgeonhole Problem: tried to put too many auras on a set of hexes')
     remaining_auras = deepcopy(aura_list)
@@ -490,11 +489,12 @@ class Yeoman(Spell):
                         return_index = True
                     )
                     # keep track of the new location for the object
-                    object_location_pairs.append((hex.occupant, room.hexes[target_hex_index]))
+                    object_location_pairs.append((hex.occupant, unoccupied_locations[target_hex_index]))
                     hex.occupant = None
                     unoccupied_locations.pop(target_hex_index)
             # update the board with new locations
-            for object_to_place, target_hex in object_location_pairs:
+            for object_to_place, loc in object_location_pairs:
+                target_hex = location.find_hex(board, loc)
                 target_hex.occupant = object_to_place
                 object_to_place.hex = target_hex 
         self._toggle_tapped()

@@ -25,7 +25,7 @@ class Game(object):
         for hex in self.current_board.rooms[0].hexes:
             if hex.aura:
                 linked_names = [x.name for x in linked_rooms(self.current_board, hex)]
-                if all([(x in linked_names) for x in ['P','I','O','U','S','L','Y']]):
+                if sorted(linked_names) == sorted(['P','I','O','U','S','L','Y']):
                     winners.append(hex.aura)
         win_set = set(winners)
         if not win_set:
