@@ -26,6 +26,14 @@ def find_hex(board, location):
                 return test_hex
     return None
 
+def find_hex_axial(board, axial_pos):
+    x, y = axial_pos
+    location = np.matrix([x, y, -1*x - y])
+    return find_hex(board, location)
+
+def location_to_axial(location):
+    return (location.flat[0], location.flat[1])
+
 def find_neighbor_hex(board, starting_hex, direction):
     # find the hex at direction relative to direction
     return find_hex(board, starting_hex.location + direction)

@@ -35,17 +35,17 @@ HEX_POINTS = (8,4), (45,0), (64,10), (57,27), (20,31), (0,22)
 HEX_FOOTPRINT = (65, 32)
 
 # TODO:
-# - implement clicking on hex
 # - make hexes regular
-# - debug black rect around hex on linux
 # - display prompt text on screen
 # - display more board state (ex spells faction+tapped) on screen
 # - indicate valid hexes to click visually
 # - make the player object prettier
 # - move some classes into seperate files
+# - make the board stay on the screen by taking the average x, y and putting it in the center
+# - improve handle_click to use mask not rect (right now it will sometimes take wrong hex)
 
 class HexTile(pg.sprite.Sprite):
-    def __init__(self, pos, room, name, *groups):
+    def __init__(self, pos, room, axial_pos, *groups):
         # *groups is initialized as pg.sprite.LayeredUpdates()
         super(HexTile, self).__init__(*groups)
         self.color =  ROOM_COLORS[room]
@@ -54,10 +54,10 @@ class HexTile(pg.sprite.Sprite):
         self.mask = self.make_mask()
         self.room = room
         self.layer = 0
-        self.coordinate_str = name
+        self.axial_pos = axial_pos
 
     def name(self):
-        return ' {}: {}'.format(self.room, self.coordinate_str)
+        return ' {}: ({}, {})'.format(self.room, self.axial_pos[0], self.axial_pos[1])
 
     def make_tile(self, room):
         image = pg.Surface(HEX_FOOTPRINT).convert_alpha()
@@ -141,9 +141,8 @@ class PiouslyApp(object):
         self.axial_min_y = min([hex['y'] for hex in hexes])
 
         for hex in hexes:
-            name = '({}, {})'.format(hex['x'], hex['y'])
             pos = self.axial_to_screen(hex['x'], hex['y'])
-            HexTile(pos, hex['room'], name, tiles)
+            HexTile(pos, hex['room'], (hex['x'], hex['y']), tiles)
 
         self.tiles = tiles
 
@@ -238,8 +237,7 @@ class PiouslyApp(object):
                self.done = True
                self.close()
            elif event.type == pg.MOUSEBUTTONDOWN:
-               pass
-               # TODO: write handle_click(event.pos) to set self.click_hex
+               self.handle_click(event.pos)
            elif event.type == pg.KEYDOWN:
                self.key = pg.key.name(event.key)
                print("You entered: ({})".format(self.key))
@@ -253,6 +251,13 @@ class PiouslyApp(object):
     def close(self):
         pg.quit()
         exit()
+
+    def handle_click(self, pos):
+        for hex in self.tiles:
+            if hex.rect.collidepoint(pos):
+                print('clicked {}'.format(hex.name()))
+                self.click_hex = hex.axial_pos
+                return
 
 def text_render(text, font, color=pg.Color("black")):
     text_rend = font.render(text, 1, color)
