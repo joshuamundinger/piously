@@ -6,8 +6,40 @@ from backend.errors import InvalidMove
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
 from graphics.screen_input import choose_from_list
+import graphics.screen_input as screen_input
 from copy import deepcopy
 import backend.location as location
+
+""" 
+method to place auras on hexes, used in Imposter and Upset
+place_auras_on_hexes replaces the auras on the hexes in hex_list with 
+those in aura_list, based on user input
+
+Params:
+ - aura_list: list of auras to place (entries should be 'Dark' or 'Light'). None entries
+    will automatically be removed
+ - hex_list: list of hexes to put auras on
+"""
+def place_auras_on_hexes(board, aura_list, hex_list):
+    # clean the list of empty auras
+    aura_list = [aura for aura in aura_list if aura]
+    if len(aura_list) > len(hex_list):
+        raise RuntimeError('Pidgeonhole Problem: tried to put too many auras on a set of hexes')
+    remaining_auras = deepcopy(aura_list)
+    # clear auras in target room
+    for hex in hex_list:
+        hex.aura = None
+    board.flush_aura_data()
+    for aura in aura_list:
+        remaining_auras.remove(aura)
+        new_hex = screen_input.choose_hexes(
+            board.screen,
+            [hex for hex in hex_list if not hex.aura],
+            prompt_text = "Choose a hex for aura {}\n Auras remaining: {}".format(aura, remaining_auras),
+        )
+        new_hex.aura = aura
+        board.flush_aura_data()
+
 
 class Spell(object):
     def __init__(self):
@@ -82,6 +114,9 @@ class Spell(object):
 # it seems reasonable to start with asking the needed questions to collect spell
 # specific info, giving all options, and applying those options even if illegal
 # potential things to validate are marked with TOVALIDATE
+
+# TODO: implement click-based input for all spells.
+# Completed so far: P spells
 class Priestess(Spell):
     def __init__(self, artwork):
         super(Priestess, self).__init__() # initializes faction and tapped
@@ -90,40 +125,21 @@ class Priestess(Spell):
         self.description = 'Grow linked region'
         self.artwork = artwork
 
-    def _validate_operations(self, board, operations):
-        if len(operations) != 1:
-            raise InvalidMove('Priestess should make 1 change not {}'.format(len(operations)))
-
-        operation = operations[0]
-        valid_changes = [board.faction, board.faction[0].lower()] # getting this by slicing the faction name is :(
-        if operation.change not in valid_changes:
-            raise InvalidMove('Priestess change cannot be {}'.format(operation.change))
-
-        # TOVALIDATE: check operation.hex is adjacent to pristess artwork linked region
-
-    def cast(self, board, hex_str=None):
+    def cast(self, board):
         self._validate_spell_status(board)
 
-        # prompt if no hex was passed
-        if hex_str == None or hex_str == []:
-            target_hex = choose_from_list(
-                board.screen,
-                location.adjacent_linked_region(board, board.artworks[0].hex),
-                prompt_text = self.description,
-            )
-            if not target_hex:
-                raise InvalidMove('There are no hexes which the Priestess may bless')
-            print('Using the Priestess on {}'.format(target_hex))
-        else:
-            target_hex = hex_str
-
-        operations = [Operation(target_hex, board.faction)]
-        self._shared_cast(board, operations)
-
-        """
-        # alternative version, without operations
+        # choose the hex to bless
+        adjacent_linked_hexes = location.adjacent_linked_region(board, board.artworks[0].hex)
+        target_hex = screen_input.choose_hexes(
+            board.screen,
+            adjacent_linked_hexes,
+            prompt_text = self.description
+        )
+        if not target_hex:
+            raise InvalidMove('There are no hexes which the Priestess may bless')
+        print('Using the Priestess on {}'.format(target_hex))
         target_hex.aura = board.faction
-        """
+        self._toggle_tapped()
 
 class Purify(Spell):
     def __init__(self):
@@ -132,37 +148,22 @@ class Purify(Spell):
         self.color = 'Pink'
         self.description = 'Bless underneath adjacent object'
 
-    def _validate_operations(self, board, operations):
-        if len(operations) != 1:
-            raise InvalidMove('Purify should make 1 change not {}'.format(len(operations)))
-
-        operation = operations[0]
-        valid_changes = [board.faction, board.faction[0].lower()] # getting this by slicing the faction name is :(
-        if operation.change not in valid_changes:
-            raise InvalidMove('Purify change cannot be {}'.format(operation.change))
-        # TOVALIDATE: check operation.hex is adjacent to player token and has an object on it
-
-    def cast(self, board, hex_str=None):
+    def cast(self, board):
         self._validate_spell_status(board)
-
-        # use hex_str if given, otherwise prompt for input
-        if hex_str == None or hex_str == []: # can be [] if called with Spell's params (board, operations)
-            adj_hexes = find_adjacent_hexes(board, board.get_current_player().hex)
-            # choose from neighbors which are occupied
-            hex = choose_from_list(
-                board.screen,
-                [h for h in adj_hexes if h.occupant != None],
-                prompt_text = self.description,
-            )
-            if not hex:
-                raise InvalidMove('No adjacent hexes have an object')
-            print('Using Purify on {}'.format(hex))
-        else:
-            hex = hex_str
-
-        # TOVALIDATE: hex is not already occupied by that color aura
-        operations = [Operation(hex, board.faction)]
-        self._shared_cast(board, operations)
+        adj_hexes = find_adjacent_hexes(board, board.get_current_player().hex)
+        # get list of occupied neighbors which are the wrong aura
+        purifiable_hexes = [h for h in adj_hexes if (h.occupant and h.aura != board.faction)]
+        # choose from neighbors which are occupied
+        hex = screen_input.choose_hexes(
+            board.screen,
+            purifiable_hexes,
+            prompt_text = self.description,
+        )
+        if not hex:
+            raise InvalidMove('No hexes to Purify')
+        print('Using Purify on {}'.format(hex))
+        hex.aura = board.faction
+        self._toggle_tapped()
 
 class Imposter(Spell):
     def __init__(self, artwork):
@@ -185,15 +186,9 @@ class Imposter(Spell):
             prompt_text = 'Choose room to copy to',
         )
         # get list of auras in artwork's room
-        aura_list = [hex.aura for hex in self.artwork.hex.room.hexes]
-        for hex in target_room.hexes:
-            new_aura = choose_from_list(
-                board.screen,
-                aura_list,
-                prompt_text = "Aura for hex at {}".format(hex.location),
-            )
-            hex.aura = new_aura
-            aura_list.remove(new_aura)
+        aura_list = [hex.aura for hex in self.artwork.hex.room.hexes if hex.aura]
+        # TODO: handle if you are copying more than one aura onto the Shovel
+        place_auras_on_hexes(board, aura_list, target_room.hexes)
         self._shared_cast(board)
 
 class Imprint(Spell):
@@ -273,7 +268,7 @@ class Opportunist(Spell):
             if spell.faction == board.faction and spell.tapped:
                 # TODO: add verification for chosen spell's room to be linked to the Opportunist
                 eligible_spells.append(spell)
-        spell = screen_input.choose_from_list(self.screen, eligible_spells)
+        spell = choose_from_list(board.screen, eligible_spells)
         if not spell:
             raise InvalidMove('There are no linked untapped spells')
 
@@ -316,33 +311,27 @@ class Usurper(Spell):
     def cast(self, board):
         self._validate_spell_status(board)
         self._toggle_tapped()
-        test_board = deepcopy(board)
-        flip_locations = []
-        grow_locations = []
         # pick two linked hexes to flip
         for i in range(2):
-            # TODO TOVALIDATE: could filter the hex w/ usurper obj out of the list
-            hex_to_flip = choose_from_list(
+            hex_to_flip = screen_input.choose_hexes(
                 board.screen,
-                location.linked_hexes(test_board, self.artwork.hex),
+                location.linked_hexes(board, self.artwork.hex),
                 prompt_text = 'Pick a hex on which to flip',
             )
             hex_to_flip.toggle_aura()
-            flip_locations.append(hex_to_flip.location)
-            # check to see if we flipped under the artwork
-            self._validate_artwork_status(test_board)
+            board.flush_aura_data()
+            # check to see if we flipped under the artwork/
+            # if so, stop Usurping
+            if self.artwork.hex.aura != board.faction:
+                return None
         for i in range(2):
-            hex_to_change = choose_from_list(
+            hex_to_change = screen_input.choose_hexes(
                 board.screen,
-                location.adjacent_linked_region(test_board, self.artwork.hex),
+                location.adjacent_linked_region(board, self.artwork.hex),
                 prompt_text = 'Pick a hex on which to grow',
             )
-            hex_to_change.aura = test_board.faction
-            grow_locations.append(hex_to_change.location)
-        for x in flip_locations:
-            location.find_hex(board,x).toggle_aura()
-        for x in grow_locations:
-            location.find_hex(board,x).aura = board.faction
+            hex_to_change.aura = board.faction
+            board.flush_aura_data()
 
 class Upset(Spell):
     def __init__(self):
@@ -356,22 +345,14 @@ class Upset(Spell):
 
     def cast(self, board):
         self._validate_spell_status(board)
-
         # get neighborhood of 7 hexes and their auras
         neighborhood = location.find_adjacent_hexes(board, board.get_current_player().hex)
         neighborhood.append(board.get_current_player().hex)
-        auras = [x.aura for x in neighborhood]
-
-        for hex in neighborhood:
-            new_aura = choose_from_list(
-                board.screen,
-                auras,
-                prompt_text = "Pick aura for hex {}".format(hex),
-            )
-            hex.aura = new_aura
-            auras.remove(new_aura)
-            # TODO: test
-        self._shared_cast(board)
+        # get auras on neighborhood
+        aura_list = [x.aura for x in neighborhood if x.aura]
+        # rearrange auras in neighborhood
+        place_auras_on_hexes(board, aura_list, neighborhood)
+        self._toggle_tapped()
 
 class Stonemason(Spell):
     def __init__(self, artwork):
@@ -405,9 +386,8 @@ class Locksmith(Spell):
     def _validate_operations(self, board, operations):
         pass
 
-    def cast(self, board, hex_str=None):
+    def cast(self, board):
         self._validate_spell_status(board)
-
         # get list of linked objects
         linked_hexes = location.linked_hexes(board, self.artwork.hex)
         linked_objects = [hex.occupant for hex in linked_hexes if hex.occupant]
@@ -424,17 +404,17 @@ class Locksmith(Spell):
         # choose a linked object to move. There should always be at least one,
         # since we've validated that the Locksmith is on an aura
         target_object = choose_from_list(
-          board.screen,
-          linked_objects,
-          prompt_text='Choose object to move',
+            board.screen,
+            linked_objects,
+            prompt_text='Choose object to move',
         )
-        target_hex = choose_from_list(
+        target_hex = screen_input.choose_hexes(
             board.screen,
             target_hexes,
             prompt_text='Choose where to move {}'.format(target_object)
         )
         board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
-        self._toggle_tapped
+        self._toggle_tapped()
 
 class Leap(Spell):
     def __init__(self):
@@ -479,6 +459,7 @@ class Yeoman(Spell):
     def _validate_operations(self, board, operations):
         pass
 
+    # TODO: redo so that partial placements may be flushed to the board
     def cast(self,board,str=[]):
         self._validate_artwork_status(board)
         # get linked rooms
@@ -494,32 +475,23 @@ class Yeoman(Spell):
         # loop through all rooms, and rearrange the objects in each room
         for room in populated_linked_rooms:
             # move objects that used to be in the room, one at a time.
-            """
-            Why Use Enumeration?: A Short Discussion. 
-            Enumerating locations allows us to pop() locations from the list once
-            they are targeted; python's list.remove() uses "in" to determine membership,
-            which uses equality, which does not behave well for numpy's vectors.
-            A perhaps more Pythonic solution to this would be to define a new location
-            class which carries the data of the location and has the right notion of
-            equivalence implemented. This class could also have getter methods for various
-            coordinate systems. (-JM 20/6/20)
-            """
-            unoccupied_locations = list(enumerate([hex.location for hex in room.hexes]))
+            unoccupied_locations = [hex.location for hex in room.hexes]
             object_location_pairs = []
             for hex in room.hexes:
                 # assign a new location to the object on this hex, if there is one
                 # this assignment goes into object_location_pairs
                 if hex.occupant:
                     # choose a hex not yet targeted 
-                    target_location = choose_from_list(
+                    target_hex_index = screen_input.choose_hexes(
                         board.screen,
-                        unoccupied_locations,
-                        prompt_text="Pick a location for {}".format(hex.occupant)
+                        [location.find_hex(board,loc) for loc in unoccupied_locations],
+                        prompt_text="Pick a hex for {}".format(hex.occupant),
+                        return_index = True
                     )
                     # keep track of the new location for the object
-                    object_location_pairs.append((hex.occupant, target_location[1]))
+                    object_location_pairs.append((hex.occupant, unoccupied_locations[target_hex_index]))
                     hex.occupant = None
-                    unoccupied_locations.pop(target_location[0])
+                    unoccupied_locations.pop(target_hex_index)
             # update the board with new locations
             for object_to_place, loc in object_location_pairs:
                 target_hex = location.find_hex(board, loc)
@@ -566,7 +538,7 @@ class Yoke(Spell):
                 if (player_can_move and target_can_move):
                     possible_location_data.append((player_destination, target_destination))
             # if there's more than one direction, ask user for input
-            player_direction = choose_from_list(
+            player_direction = screen_input.choose_hexes(
                 board.screen, 
                 [x[0] for x in possible_location_data],
                 prompt_text="Choose the destination of the player"

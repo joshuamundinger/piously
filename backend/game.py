@@ -4,7 +4,7 @@ Overall game class to track info related to turns and the board.
 from backend.board import Board
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
-from backend.location import find_adjacent_hexes, location_to_axial
+from backend.location import find_adjacent_hexes, location_to_axial, linked_rooms
 from backend.operation import Operation
 from graphics.screen import PiouslyApp
 import graphics.screen_input as screen_input
@@ -20,61 +20,23 @@ class Game(object):
         return str(self.current_board)
 
     def is_game_over(self):
-        pass
+        #for each aura'd hex in a room, check if the linked region has all seven rooms.
+        winners = []
+        for hex in self.current_board.rooms[0].hexes:
+            if hex.aura:
+                linked_names = [x.name for x in linked_rooms(self.current_board, hex)]
+                if sorted(linked_names) == sorted(['P','I','O','U','S','L','Y']):
+                    winners.append(hex.aura)
+        win_set = set(winners)
+        if not win_set:
+            return None
+        elif len(win_set) == 1:
+            return winners[0]
+        else:
+            return "Tie"
 
     def get_current_player(self):
         return self.current_board.get_current_player()
-
-    def flush_hex_data(self):
-        hex_maps = []
-        for room in self.current_board.rooms:
-            for hex in room.hexes:
-                hex_maps.append({
-                    'x': hex.location.flat[0],
-                    'y': hex.location.flat[1],
-                    'room': hex.room.name[0],
-                })
-        self.screen.make_map(hex_maps)
-
-
-    def flush_player_data(self):
-        data = []
-        for player in self.current_board.players.values():
-            if player.hex:
-                data.append({
-                    'x': player.hex.location.flat[0],
-                    'y': player.hex.location.flat[1],
-                    'faction': player.faction,
-                })
-        self.screen.player_data = data
-
-    def flush_artwork_data(self):
-        data = []
-        for artwork in self.current_board.artworks:
-            if artwork.hex:
-                data.append({
-                    'x': artwork.hex.location.flat[0],
-                    'y': artwork.hex.location.flat[1],
-                    'room': artwork.color[0],
-                })
-        self.screen.artwork_data = data
-
-    def flush_aura_data(self):
-        data = []
-        for room in self.current_board.rooms:
-            for hex in room.hexes:
-                if hex.aura:
-                    data.append({
-                        'x': hex.location.flat[0],
-                        'y': hex.location.flat[1],
-                        'faction': hex.aura,
-                    })
-        self.screen.aura_data = data
-
-    def flush_gamepieces(self):
-        self.flush_aura_data()
-        self.flush_player_data()
-        self.flush_artwork_data()
 
     def move(self):
         if self.current_board.actions < 1:
@@ -247,16 +209,16 @@ class Game(object):
     def play(self):
         # set up board
         self.place_rooms()
-        self.flush_hex_data()
+        self.current_board.flush_hex_data()
         self.place_players()
-        self.flush_player_data()
+        self.current_board.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
         print(self) # print starting board
 
         # enter main game loop
         while not self.is_game_over():
             # print(self)
-            self.flush_gamepieces()
+            self.current_board.flush_gamepieces()
             move_type = screen_input.choose_move(self.screen)
             try:
                 if move_type == 'move':
@@ -281,8 +243,11 @@ class Game(object):
             except InvalidMove as move:
                 print(self)
                 print('{} '.format(move))
-
-        print('Goodbye :)\n')
+        # at this point, self.is_game_over()
+        print("{} wins!".format(self.is_game_over()))
+        print("Click on any hex to exit.")
+        screen_input.get_click(self.screen)
+        print('Goodbye :)\n')        
 
 
 if __name__ == "__main__":
