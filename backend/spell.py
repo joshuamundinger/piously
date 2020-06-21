@@ -2,6 +2,7 @@
 keeps track of backend of spells, including a pointer to a linked artwork,
 who owns it, and whether it has been used this turn
 """
+from backend.room import Room
 from backend.errors import InvalidMove
 from backend.location import find_adjacent_hexes
 from backend.operation import Operation
@@ -9,6 +10,7 @@ from graphics.screen_input import choose_from_list
 import graphics.screen_input as screen_input
 from copy import deepcopy
 import backend.location as location
+import numpy as np
 
 """
 method to place auras on hexes, used in Imposter and Upset
@@ -366,10 +368,42 @@ class Shovel(Spell):
         super(Shovel, self).__init__() # initializes faction and tapped
         self.name = 'Shovel'
         self.color = 'Sapphire'
-        self.description = 'Move shovel room to adjacent space'
+        self.description = "Move Shovel room to adjacent space,\n or if you\'re on it, move Shovel room anywhere"
 
     def _validate_operations(self, board, operations):
         pass
+
+    def create_Shovel_room(self, location):
+        return Room("v",
+            location, [],
+            None, None
+            )
+
+    def cast(self, board):
+        # check if the shovel has been placed yet
+        if len(board.rooms) == 7:
+            # time to place the shovel!
+            # make temporary room with hexes adjacent to current player
+            player_hex = board.get_current_player().hex
+            new_hex_locations = location.find_unoccupied_neighbors(board,[player_hex])
+            # make room with hexes at new_hex_locations, and choose from them
+            if not new_hex_locations:
+                raise InvalidMove("There's nowhere to place the Shovel")
+            root = new_hex_locations.pop(0)
+            board.rooms.append(Room("t",
+                root,
+                new_hex_locations,None,None,relative_shape=False)
+            )
+            board.flush_hex_data()
+            shovel_location = screen_input.choose_hexes(board.screen, 
+                board.rooms[7].hexes,
+                prompt_text = "Choose where the Shovel will go").location
+            board.rooms.pop()
+            board.rooms.append(self.create_Shovel_room(shovel_location))       
+            board.flush_hex_data()
+        else:
+            # time to move the shovel!
+            pass
 
 class Locksmith(Spell):
     def __init__(self, artwork):

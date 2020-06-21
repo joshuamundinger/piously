@@ -16,7 +16,7 @@ TRANSPARENT = (0, 0, 0, 0)
 FPS = 10 # 60
 FONT = "Arial"
 
-ROOMS = ["P", "I", "O", "U", "S", "L", "Y"]
+ROOMS = ["P", "I", "O", "U", "S", "L", "Y","v","t"]
 
 ROOM_COLORS = {
     "P" : pg.Color("pink"),
@@ -26,6 +26,8 @@ ROOM_COLORS = {
     "S" : pg.Color("turquoise2"),
     "L" : pg.Color("yellowgreen"),
     "Y" : pg.Color("yellow2"),
+    "v" : pg.Color("tan"),  # shovel room
+    "t": pg.Color("white"), # temporary room
 }
 
 FACTION_COLORS = {
@@ -130,9 +132,9 @@ class PiouslyApp(object):
         self.cursor = CursorHighlight()
         self.hex_data = None
         self.tiles = None
-        self.player_data = None
-        self.artwork_data = None
-        self.aura_data = None
+        self.player_data = []
+        self.artwork_data = []
+        self.aura_data = []
         self.done = False
         self.key = None
         self.click_hex = None
