@@ -179,7 +179,6 @@ class Imposter(Spell):
         self._validate_spell_status(board)
         print(self.description)
         # get a linked room.
-        # TODO: make output of choose_from_list nicer
         target_room = choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
@@ -478,16 +477,13 @@ class Yeoman(Spell):
         self._validate_artwork_status(board)
         # get linked rooms
         populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
-        linked_room_objects = []
         # for each room, find the objects in the room. 
         # If there are no objects, remove the room from the list,
-        # so that only populated rooms remain; otherwise put the objects into linked_room_objects
+        # so that only populated rooms remain
         for room in populated_linked_rooms:
             occupants = [hex.occupant for hex in room.hexes]
             # only keep track of objects in rooms which have at least one object and more than one hex
-            if any(occupants) and len(room.hexes) > 1:
-                linked_room_objects.append(occupants)
-            else:
+            if not (any(occupants) and len(room.hexes) > 1):
                 populated_linked_rooms.remove(room)
         # loop through all rooms, and rearrange the objects in each room
         for room in populated_linked_rooms:
