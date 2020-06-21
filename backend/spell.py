@@ -387,7 +387,7 @@ class Shovel(Spell):
             player_hex = board.get_current_player().hex
             new_hex_locations = location.find_unoccupied_neighbors(board,[player_hex])
             # make room with hexes at new_hex_locations, and choose from them
-            if not new_hex_locations:
+            if new_hex_locations == []:
                 raise InvalidMove("There's nowhere to place the Shovel")
             root = new_hex_locations.pop(0)
             board.rooms.append(Room("t",

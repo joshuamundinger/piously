@@ -150,6 +150,8 @@ def find_unoccupied_neighbors(board, hex_list):
         for u in unit_directions:
             # see if there is a hex in direction u from hex
             test_location = hex.location + u
-            if not(find_neighbor_hex(board,hex,u) or test_location in unoccupied_locations):
+            if not(find_neighbor_hex(board,hex,u)):
                 unoccupied_locations.append(test_location)
+    # TODO: remove duplicates from unoccupied_locations
+    # it cannot be cast to set since matrices are not hashable
     return unoccupied_locations

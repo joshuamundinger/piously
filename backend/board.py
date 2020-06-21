@@ -294,7 +294,7 @@ class Board(object):
         self.flush_aura_data()
         self.flush_player_data()
         self.flush_artwork_data()
-        self.screen.board_state.text = self.current_board.get_state_msg()
+        self.screen.board_state.text = self.get_state_msg()
 
 
     ##########################
