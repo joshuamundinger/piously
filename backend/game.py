@@ -38,57 +38,6 @@ class Game(object):
     def get_current_player(self):
         return self.current_board.get_current_player()
 
-    def flush_hex_data(self):
-        hex_maps = []
-        for room in self.current_board.rooms:
-            for hex in room.hexes:
-                hex_maps.append({
-                    'x': hex.location.flat[0],
-                    'y': hex.location.flat[1],
-                    'room': hex.room.name[0],
-                })
-        self.screen.make_map(hex_maps)
-
-
-    def flush_player_data(self):
-        data = []
-        for player in self.current_board.players.values():
-            if player.hex:
-                data.append({
-                    'x': player.hex.location.flat[0],
-                    'y': player.hex.location.flat[1],
-                    'faction': player.faction,
-                })
-        self.screen.player_data = data
-
-    def flush_artwork_data(self):
-        data = []
-        for artwork in self.current_board.artworks:
-            if artwork.hex:
-                data.append({
-                    'x': artwork.hex.location.flat[0],
-                    'y': artwork.hex.location.flat[1],
-                    'room': artwork.color[0],
-                })
-        self.screen.artwork_data = data
-
-    def flush_aura_data(self):
-        data = []
-        for room in self.current_board.rooms:
-            for hex in room.hexes:
-                if hex.aura:
-                    data.append({
-                        'x': hex.location.flat[0],
-                        'y': hex.location.flat[1],
-                        'faction': hex.aura,
-                    })
-        self.screen.aura_data = data
-
-    def flush_gamepieces(self):
-        self.flush_aura_data()
-        self.flush_player_data()
-        self.flush_artwork_data()
-
     def move(self):
         if self.current_board.actions < 1:
             raise InvalidMove('You cannot move because you have no more actions')
@@ -260,16 +209,16 @@ class Game(object):
     def play(self):
         # set up board
         self.place_rooms()
-        self.flush_hex_data()
+        self.current_board.flush_hex_data()
         self.place_players()
-        self.flush_player_data()
+        self.current_board.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
         print(self) # print starting board
 
         # enter main game loop
         while not self.is_game_over():
             # print(self)
-            self.flush_gamepieces()
+            self.current_board.flush_gamepieces()
             move_type = screen_input.choose_move(self.screen)
             try:
                 if move_type == 'move':
