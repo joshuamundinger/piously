@@ -4,7 +4,7 @@ Overall game class to track info related to turns and the board.
 from backend.board import Board
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
-from backend.location import find_adjacent_hexes, location_to_axial
+from backend.location import find_adjacent_hexes, location_to_axial, linked_rooms
 from backend.operation import Operation
 from graphics.screen import PiouslyApp
 import graphics.screen_input as screen_input
@@ -20,7 +20,20 @@ class Game(object):
         return str(self.current_board)
 
     def is_game_over(self):
-        pass
+        #for each aura'd hex in a room, check if the linked region has all seven rooms.
+        winners = []
+        for hex in self.current_board.rooms[0].hexes:
+            if hex.aura:
+                linked_names = [x.name for x in linked_rooms(self.current_board, hex)]
+                if all([(x in linked_names) for x in ['P','I','O','U','S','L','Y']]):
+                    winners.append(hex.aura)
+        win_set = set(winners)
+        if not win_set:
+            return None
+        elif len(win_set) == 1:
+            return winners[0]
+        else:
+            return "Tie"
 
     def get_current_player(self):
         return self.current_board.get_current_player()
@@ -281,8 +294,11 @@ class Game(object):
             except InvalidMove as move:
                 print(self)
                 print('{} '.format(move))
-
-        print('Goodbye :)\n')
+        # at this point, self.is_game_over()
+        print("{} wins!".format(self.is_game_over()))
+        print("Click on any hex to exit.")
+        screen_input.get_click(self.screen)
+        print('Goodbye :)\n')        
 
 
 if __name__ == "__main__":
