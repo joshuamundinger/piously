@@ -61,7 +61,7 @@ class Spell(object):
             else:
                 raise InvalidMove('{} is not placed on board'.format(self.name))
 
-    def _shared_cast(self, board, operations):
+    def _shared_cast(self, board, operations=[]):
         self._validate_operations(board, operations)
         self._toggle_tapped()
         self._apply_operations(board, operations)
@@ -121,7 +121,7 @@ class Priestess(Spell):
         self._shared_cast(board, operations)
 
         """
-        # alternative version
+        # alternative version, without operations
         target_hex.aura = board.faction
         """
 
@@ -179,6 +179,7 @@ class Imposter(Spell):
         self._validate_spell_status(board)
         print(self.description)
         # get a linked room.
+        # TODO: make output of choose_from_list nicer
         target_room = choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
@@ -194,8 +195,7 @@ class Imposter(Spell):
             )
             hex.aura = new_aura
             aura_list.remove(new_aura)
-
-            # TODO: test
+        self._shared_cast(board)
 
 class Imprint(Spell):
     def __init__(self):
@@ -230,8 +230,7 @@ class Imprint(Spell):
         for i in range(6):
             if opposing_neighboring_auras[i] != 'Skip' and current_player_neighborhood[i]:
                 current_player_neighborhood[i].aura = opposing_neighboring_auras[i]
-
-        # TODO: test
+        self._shared_cast(board)
 
 class Opportunist(Spell):
     def __init__(self, artwork):
@@ -311,16 +310,20 @@ class Usurper(Spell):
 
     def cast(self, board):
         self._validate_spell_status(board)
+        self._toggle_tapped()
         test_board = deepcopy(board)
+        flip_locations = []
+        grow_locations = []
         # pick two linked hexes to flip
         for i in range(2):
-            # TOVALIDATE: could filter the hex w/ usurper obj out of the list
+            # TODO TOVALIDATE: could filter the hex w/ usurper obj out of the list
             hex_to_flip = choose_from_list(
                 board.screen,
                 location.linked_hexes(test_board, self.artwork.hex),
                 prompt_text = 'Pick a hex on which to flip',
             )
             hex_to_flip.toggle_aura()
+            flip_locations.append(hex_to_flip.location)
             # check to see if we flipped under the artwork
             self._validate_artwork_status(test_board)
         for i in range(2):
@@ -329,9 +332,12 @@ class Usurper(Spell):
                 location.adjacent_linked_region(test_board, self.artwork.hex),
                 prompt_text = 'Pick a hex on which to grow',
             )
-            hex_to_change.aura = test_board.get_current_player().faction
-        board = test_board
-        # TODO: test
+            hex_to_change.aura = test_board.faction
+            grow_locations.append(hex_to_change.location)
+        for x in flip_locations:
+            location.find_hex(board,x).toggle_aura()
+        for x in grow_locations:
+            location.find_hex(board,x).aura = board.faction
 
 class Upset(Spell):
     def __init__(self):
@@ -360,6 +366,7 @@ class Upset(Spell):
             hex.aura = new_aura
             auras.remove(new_aura)
             # TODO: test
+        self._shared_cast(board)
 
 class Stonemason(Spell):
     def __init__(self, artwork):
@@ -422,8 +429,7 @@ class Locksmith(Spell):
             prompt_text='Choose where to move {}'.format(target_object)
         )
         board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
-
-        # TODO: test
+        self._toggle_tapped
 
 class Leap(Spell):
     def __init__(self):
@@ -455,6 +461,7 @@ class Leap(Spell):
                 raise InvalidMove('There\'s no object to Leap with')
         board.swap_object(current_player, target_object)
         # TODO: test
+        self._toggle_tapped()
 
 class Yeoman(Spell):
     def __init__(self, artwork):
@@ -466,6 +473,58 @@ class Yeoman(Spell):
 
     def _validate_operations(self, board, operations):
         pass
+
+    def cast(self,board,str=[]):
+        self._validate_artwork_status(board)
+        # get linked rooms
+        populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
+        linked_room_objects = []
+        # for each room, find the objects in the room. 
+        # If there are no objects, remove the room from the list,
+        # so that only populated rooms remain; otherwise put the objects into linked_room_objects
+        for room in populated_linked_rooms:
+            occupants = [hex.occupant for hex in room.hexes]
+            # only keep track of objects in rooms which have at least one object and more than one hex
+            if any(occupants) and len(room.hexes) > 1:
+                linked_room_objects.append(occupants)
+            else:
+                populated_linked_rooms.remove(room)
+        # loop through all rooms, and rearrange the objects in each room
+        for room in populated_linked_rooms:
+            # move objects that used to be in the room, one at a time.
+            """
+            Why Use Enumeration?: A Short Discussion. 
+            Enumerating locations allows us to pop() locations from the list once
+            they are targeted; python's list.remove() uses "in" to determine membership,
+            which uses equality, which does not behave well for numpy's vectors.
+            A perhaps more Pythonic solution to this would be to define a new location
+            class which carries the data of the location and has the right notion of
+            equivalence implemented. This class could also have getter methods for various
+            coordinate systems. (-JM 20/6/20)
+            """
+            unoccupied_locations = list(enumerate([hex.location for hex in room.hexes]))
+            object_location_pairs = []
+            for hex in room.hexes:
+                # assign a new location to the object on this hex, if there is one
+                # this assignment goes into object_location_pairs
+                if hex.occupant:
+                    # choose a hex not yet targeted 
+                    target_location = choose_from_list(
+                        board.screen,
+                        unoccupied_locations,
+                        prompt_text="Pick a location for {}".format(hex.occupant)
+                    )
+                    # keep track of the new location for the object
+                    object_location_pairs.append((hex.occupant, target_location[1]))
+                    hex.occupant = None
+                    unoccupied_locations.pop(target_location[0])
+            # update the board with new locations
+            for object_to_place, loc in object_location_pairs:
+                target_hex = location.find_hex(board, loc)
+                target_hex.occupant = object_to_place
+                object_to_place.hex = target_hex 
+        self._toggle_tapped()
+
 
 class Yoke(Spell):
     def __init__(self):
@@ -479,6 +538,7 @@ class Yoke(Spell):
 
     def cast(self, board, hex_str=None):
         self._validate_spell_status(board)
+        current_player = board.get_current_player()
         if not hex_str:
             # get target object for yoking
             target_object = choose_from_list(
@@ -490,42 +550,35 @@ class Yoke(Spell):
                 # you shouldn't be here: there should always be at least two objects
                 raise InvalidMove('There was no other object to Yoke')
             # get directions for yolking
-            possible_directions = []
+            # elements are: (player_destination, target_destination)
+            possible_location_data = []
             for u in location.unit_directions:
-                player_destination = location.find_neighbor_hex(board, board.get_current_player().hex, u)
+                player_destination = location.find_neighbor_hex(board, current_player.hex, u)
                 target_destination = location.find_neighbor_hex(board, target_object.hex, u)
-                # TODO: implement that one of the pieces may move onto the space currently occupied by the other.
-                player_can_move = player_destination and not(player_destination.occupant)
-                target_can_move = target_destination and not(target_destination.occupant)
+                player_can_move = player_destination and (
+                    not(player_destination.occupant) or player_destination.occupant == target_object
+                )
+                target_can_move = target_destination and (
+                    not(target_destination.occupant) or target_destination.occupant == current_player
+                )
                 if (player_can_move and target_can_move):
-                    possible_directions.append(u)
+                    possible_location_data.append((player_destination, target_destination))
             # if there's more than one direction, ask user for input
-            target_direction = choose_from_list(board.screen, possible_directions)
-            if (target_direction == None).any():
+            player_direction = choose_from_list(
+                board.screen, 
+                [x[0] for x in possible_location_data],
+                prompt_text="Choose the destination of the player"
+            )
+            if player_direction == None:
                 raise InvalidMove('These two objects have no common direction to move')
-
-        # TODO: implement movement
-        raise InvalidMove('Casting not implemented')
-
-if __name__ == "__main__":
-    # run this code from /piously with `python3 -m backend.spell`
-    from backend.board import Board
-
-    # get board and two spell
-    b = Board("Light")
-    opportunist = b.str_to_spell('q')
-    to_untap = b.str_to_spell('w')
-    print(opportunist)
-    print(to_untap)
-
-    # init values
-    opportunist.faction = "Light"
-    to_untap.faction = "Light"
-    to_untap._toggle_tapped()
-    print(opportunist)
-    print(to_untap)
-
-    # casting opportunist should untap the indicated spell and tap opportunist
-    opportunist.cast(b, 'w')
-    print(opportunist)
-    print(to_untap)
+            # get the directions of both player and target by finding the entry
+            # whose first entry is the player
+            movement_data = [x for x in possible_location_data if x[0] == player_direction][0]
+            # move the player and object
+            current_player.hex.occupant = None
+            target_object.hex.occupant = None
+            current_player.hex = movement_data[0]
+            target_object.hex = movement_data[1]
+            current_player.hex.occupant = current_player
+            target_object.hex.occupant = target_object
+            self._toggle_tapped()

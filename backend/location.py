@@ -18,6 +18,10 @@ unit_directions = [
         np.matrix([0,1,-1])
     ]
 
+def hexes_colocated(hex1, hex2):
+    # returns whether two hexes have the same location
+    return not any([hex1.location.flat[i] - hex2.location.flat[i] for i in range(3)])
+
 def find_hex(board, location):
     # given a board and a location, return the hex at this location, or None if no hex exists
     for room in board.rooms:
@@ -45,13 +49,18 @@ def leap_eligible(board, hex1, hex2):
         return False
     nonzero_entries = [x for x in displacement.flat if x != 0]
     number_of_tiles = np.gcd.reduce(nonzero_entries)
+    # get a "unit" vector in the direction between hex1 and hex2
     u = (1/number_of_tiles) * displacement
-
-    # check each position in the row and make sure none are empty
-    for i in range(number_of_tiles):
-        if not find_hex(board, hex2.location + i*u):
-            return False
-    return True
+    # check to see if the pieces are aligned along one of the three coordinate lines,
+    # which is equivalent to if u-x is zero for x in unit_directions
+    if all([ (u-x).any() for x in unit_directions]):
+        return False
+    else:
+        # check each position in the row and make sure none are empty
+        for i in range(number_of_tiles):
+            if not find_hex(board, hex2.location + i*u):
+                return False
+        return True
 
 def linked_search(board, starting_hex, check_auras, check_boundary):
     # given a hex, return the list of all hexes connected to the starting hex
@@ -63,11 +72,12 @@ def linked_search(board, starting_hex, check_auras, check_boundary):
     new_hex_list = []
     boundary = []
     while list_of_steps[-1] != []:
+        # iterate over hexes found in the last step
         for current_hex in list_of_steps[-1]:
-            # iterate over hexes found in the last step
             for candidate_hex in find_adjacent_hexes(board, current_hex):
                 # check if the current hex's neighbors have not been visited
-                if not(candidate_hex in visited_hexes):
+                # below code is to handle if two different pointers to the same object are passed
+                if all([ not(hexes_colocated(x, candidate_hex)) for x in visited_hexes]):
                     # add the new hex to the list IF not checking auras OR IF it has the right aura
                     if (not check_auras) or (candidate_hex.aura == starting_hex.aura):
                         visited_hexes.append(candidate_hex)

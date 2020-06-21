@@ -23,4 +23,4 @@ class Room(object):
 
 
     def __str__(self):
-        return ''.join(['\n  {}'.format(item) for item in self.hexes])
+        return self.name
