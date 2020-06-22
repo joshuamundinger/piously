@@ -10,8 +10,6 @@ def other_faction(faction):
     else:
         raise NameError("faction cannot be {}".format(faction))
 
-"""
-Used for printing out board state
-"""
+# used for printing out board state
 def display_list(ls):
     return ''.join(['\n  {}'.format(item) for item in ls])

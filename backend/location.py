@@ -1,57 +1,60 @@
 """
 A location is a vector of three integers whose entries sum to zero.
 This is implemented using numpy's array class.
-Location Servies: thank Apple for assisting surveillance
-"""
 
+This file has lots of different helpers for working with locations and
+computing linked regions
+"""
 import numpy as np
-from backend.errors import InvalidMove
-from backend.hex import Hex
 from copy import deepcopy
 
+unit_directions = [
+    np.matrix([1,0,-1]),
+    np.matrix([-1,1,0]),
+    np.matrix([0,-1,1]),
+    np.matrix([-1,0,1]),
+    np.matrix([1,-1,0]),
+    np.matrix([0,1,-1]),
+]
+
+# convert a location vector to a axial coordinate tuple
 def location_to_axial(location):
     return (location.flat[0], location.flat[1])
 
+# convert an axial coordinate tuple to a location vector
 def axial_to_location(axial_pos):
     x, y = axial_pos
     return np.matrix([x, y, -1*x - y])
 
-unit_directions = [
-        np.matrix([1,0,-1]),
-        np.matrix([-1,1,0]),
-        np.matrix([0,-1,1]),
-        np.matrix([-1,0,1]),
-        np.matrix([1,-1,0]),
-        np.matrix([0,1,-1])
-    ]
-
+# return whether two hexes have the same location
 def hexes_colocated(hex1, hex2):
-    # returns whether two hexes have the same location
     return not any([hex1.location.flat[i] - hex2.location.flat[i] for i in range(3)])
 
+# given a board and a location, return the hex at this location, or None if no hex exists
 def find_hex(board, location):
-    # given a board and a location, return the hex at this location, or None if no hex exists
     for room in board.rooms:
         for test_hex in room.hexes:
             if (test_hex.location == location).all():
                 return test_hex
     return None
 
-def find_hex_axial(board, axial_pos):
-    return find_hex(board, axial_to_location(axial_pos))
-
+# find the hex at direction relative to direction
 def find_neighbor_hex(board, starting_hex, direction):
-    # find the hex at direction relative to direction
     return find_hex(board, starting_hex.location + direction)
 
+# given a hex, return the (up to six) neighboring hexes
 def find_adjacent_hexes(board, starting_hex, return_nones = False):
-    # given a hex, return the (up to six) neighboring hexes
-    return [ item for item in  [find_neighbor_hex(board,starting_hex,u) for u in unit_directions] if (item != None or return_nones)]
+    adjacent_hexes = []
+    for u in unit_directions:
+        neighbor = find_neighbor_hex(board, starting_hex, u)
+        if neighbor != None or return_nones:
+            adjacent_hexes.append(neighbor)
+    return adjacent_hexes
 
+# return True if two pieces on hex1 and hex2 can Leap, and False otherwise
 def leap_eligible(board, hex1, hex2):
     if hex1 == hex2:
         return False
-    # returns True if two pieces on hex1 and hex2 can Leap, and False otherwise
     try:
         displacement = hex1.location - hex2.location
     except AttributeError:
@@ -72,10 +75,10 @@ def leap_eligible(board, hex1, hex2):
                 return False
         return True
 
-def linked_search(board, starting_hex, check_auras, check_boundary):
-    # given a hex, return the list of all hexes connected to the starting hex
-    # if check_auras, return the list of hexes connected to the starting hex by monochromatic auras
-    # breadth-first search
+# given a hex, return the list of all hexes connected to the starting hex
+# if check_auras, only return hexes connected to the starting hex by monochromatic auras
+# implements a breadth-first search
+def linked_search(board, starting_hex, check_auras=True, return_boundary=False):
     visited_hexes = [starting_hex]
     # a list of lists of hexes found at each step
     list_of_steps = [[starting_hex]]
@@ -93,23 +96,23 @@ def linked_search(board, starting_hex, check_auras, check_boundary):
                         visited_hexes.append(candidate_hex)
                         new_hex_list.append(candidate_hex)
                     # if computing the boundary, add it to the boundary
-                    elif check_boundary and not(candidate_hex in boundary):
+                    elif return_boundary and not(candidate_hex in boundary):
                         boundary.append(candidate_hex)
-        # TODO: dont think deepcopy is needed -> try removing
-        list_of_steps.append(deepcopy(new_hex_list))
+        list_of_steps.append(new_hex_list)
         new_hex_list = []
-    if check_boundary:
+
+    if return_boundary:
         return boundary
     else:
         return visited_hexes
 
+# search for linked hexes, check if they are the same aura, and don't return the boundary
 def linked_hexes(board, starting_hex):
-    # search for linked hexes, check if they are the same aura, and don't return the boundary
-    return linked_search(board, starting_hex, True, False)
+    return linked_search(board, starting_hex)
 
+# search for linked hexes, check if they are the same aura, and return the boundary
 def adjacent_linked_region(board, starting_hex):
-    # search for linked hexes, check if they are the same aura, and return the boundary
-    return linked_search(board, starting_hex, True, True)
+    return linked_search(board, starting_hex, return_boundary=True)
 
 def linked_rooms(board, starting_hex):
     linked_hex = linked_hexes(board,starting_hex)
@@ -121,9 +124,9 @@ def linked_rooms(board, starting_hex):
                 break
     return linked_room
 
+# given hex_list, returns the list of all hexes adjacent to an element of
+# hex_list, but not in hex_list
 def neighboring_region(board, hex_list):
-    # given hex_list, returns the list of all hexes adjacent to an element of hex_list,
-    # but not in hex_list
     neighbors = []
     for current_hex in hex_list:
         for test_hex in find_adjacent_hexes(board, current_hex):
@@ -143,8 +146,8 @@ def find_adjacent_rooms(board, starting_room):
                 adjacent_rooms.append(room)
     return adjacent_rooms
 
+# return locations adjacent to entries of hex_list which do not have hexes
 def find_unoccupied_neighbors(board, hex_list):
-    # return locations adjacent to entries of hex_list which do not have hexes
     unoccupied_locations = []
     for hex in hex_list:
         for u in unit_directions:

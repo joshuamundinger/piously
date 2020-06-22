@@ -5,10 +5,13 @@ from backend.board import Board
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.location import find_adjacent_hexes, location_to_axial, linked_rooms
-from backend.operation import Operation
 from graphics.screen import PiouslyApp
 import graphics.screen_input as screen_input
 import copy
+
+# TODO:
+# - confirmation before ending game
+# - cancel options - ex. when choosing spell to cast
 
 class Game(object):
     def __init__(self, start_faction):
@@ -48,12 +51,11 @@ class Game(object):
         # TODO: make functions in location.py to do ^ filtering + its opposite
 
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
-        hex_idx = screen_input.choose_location(self.screen, coords)
+        hex_idx = screen_input.choose_location(self.screen, coords, 'Click hex to move to')
         if hex_idx == None:
             raise InvalidMove('There is no adjacent hex for you to move')
 
         hex = adj_hexes_wo_objs[hex_idx]
-        print('Moving to {}'.format(hex))
 
         self.current_board.actions -= 1
         self.current_board.move_object(player, from_hex=player.hex, to_hex=hex)
@@ -101,18 +103,15 @@ class Game(object):
 
         # prompt for hex choice if needed
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
-        hex_idx = screen_input.choose_location(self.screen, coords)
+        hex_idx = screen_input.choose_location(self.screen, coords, 'Click where to drop')
         if hex_idx == None:
             raise InvalidMove('There is no adjacent hex where you can')
         hex = adj_hexes_wo_objs[hex_idx]
-        print('Dropping on {}'.format(hex))
 
         # prompt for artwork choice if needed
-        artwork = screen_input.choose_from_list(self.screen, eligible_artworks)
+        artwork = screen_input.choose_from_list(self.screen, eligible_artworks, 'Choose artwork to drop:')
         if not artwork:
             raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
-        else:
-            print('Dropping {}'.format(artwork))
 
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, to_hex=hex)
@@ -135,12 +134,11 @@ class Game(object):
                 coords.append(location_to_axial(artwork.hex.location))
 
         # prompt for artwork choice if needed
-        artwork_idx = screen_input.choose_location(self.screen, coords)
+        artwork_idx = screen_input.choose_location(self.screen, coords, 'Click artwork to pick up')
         if artwork_idx == None:
             raise InvalidMove('{} does not have any adjacent artworks to pick up'.format(faction))
 
         artwork = eligible_artworks[artwork_idx]
-        print('Picking up {}'.format(artwork))
 
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, from_hex=artwork.hex)
@@ -152,7 +150,7 @@ class Game(object):
             if spell.faction == faction:
                 if not spell.tapped:
                     eligible_spells.append(spell)
-        spell = screen_input.choose_from_list(self.screen, eligible_spells)
+        spell = screen_input.choose_from_list(self.screen, eligible_spells, 'Choose spell to cast:')
         if not spell:
             raise InvalidMove('{} does not have untapped spells'.format(faction))
         spell.cast(self.current_board)
@@ -166,23 +164,19 @@ class Game(object):
             b_spell = self.get_current_player().hex.room.bewitchment
 
             spells = [a_spell, b_spell, None]
-            # print('You have the option to choose a spell (if you do, your opponent will recieve the other spell)')
-            chosen_spell = screen_input.choose_from_list(self.screen, spells)
+            chosen_spell = screen_input.choose_from_list(self.screen, spells, 'Choose spell to claim:')
 
             if chosen_spell != None:
                 a_spell.faction = other_faction(self.current_board.faction)
                 b_spell.faction = other_faction(self.current_board.faction)
                 chosen_spell.faction = self.current_board.faction
                 a_spell.artwork.faction = a_spell.faction
-        else:
-            print('Spells for current room are already claimed')
 
     def end_turn(self):
         if self.current_board.actions < 0:
             raise InvalidMove('You cannot end turn with negative actions, please reset turn and try again')
         self.maybe_claim_spell()
 
-        # print('ENDING TURN')
         self.current_board.end_turn()
         self.old_board = copy.deepcopy(self.current_board)
 
@@ -191,7 +185,6 @@ class Game(object):
 
     def place_rooms(self):
         print('choosing room postitons is not implented yet... initializing positions')
-        # TODO: at least hard code a starting board
         pass
 
     def place_players(self):
@@ -205,7 +198,6 @@ class Game(object):
         self.current_board.move_object(light_player, to_hex=hex1)
         self.current_board.move_object(dark_player, to_hex=hex2)
 
-
     def play(self):
         # set up board
         self.place_rooms()
@@ -213,11 +205,9 @@ class Game(object):
         self.place_players()
         self.current_board.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
-        print(self) # print starting board
 
         # enter main game loop
         while not self.is_game_over():
-            # print(self)
             self.current_board.flush_gamepieces()
             move_type = screen_input.choose_move(self.screen)
             self.screen.info.error = None
@@ -237,18 +227,19 @@ class Game(object):
                 elif move_type == 'reset turn':
                     self.reset_turn()
                 elif move_type == 'end game':
-                    current_faction = self.current_board.faction
-                    self.screen.info.text = '{} forefits, {} wins!'.format(current_faction, other_faction(current_faction))
                     break
-                print(self)
             except InvalidMove as move:
-                print(self)
                 self.screen.info.error = '{} '.format(move)
-        # at this point, self.is_game_over()
-        print("{} wins!".format(self.is_game_over()))
-        print("Click on any hex to exit.")
+
+        winning_faction = self.is_game_over()
+        if winning_faction:
+            self.screen.info.text = "WINNER: {}".format(winning_faction)
+        else:
+            current_faction = self.current_board.faction
+            self.screen.info.text = '{} forefits, {} wins!'.format(current_faction, other_faction(current_faction))
+
+        self.screen.info.error = "Click on any hex to exit"
         screen_input.get_click(self.screen)
-        print('Goodbye :)\n')
 
 
 if __name__ == "__main__":

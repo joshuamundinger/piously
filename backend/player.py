@@ -12,8 +12,6 @@ class Player(object):
             location = 'Not placed'
         else:
             location = self.hex.location
-        return '{faction}\t({location})'.format(
-            faction = self.faction, 
-            location = location,
+        return '{faction} player'.format(
+            faction = self.faction,
         )
-

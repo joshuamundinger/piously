@@ -11,9 +11,6 @@ class Room(object):
         #   the locations of other hexes, if not relative_shape
 
         self.root = root
-
-        # TODO: need a way to associate a Room with a Spell, so Rooms should have either spells or colors
-        # added spells here, but could change it to colors instead
         self.artwork = a_spell
         self.bewitchment = b_spell
 
@@ -21,9 +18,8 @@ class Room(object):
         if relative_shape:
             self.hexes = [Hex(self, root)] + [Hex(self, root + delta) for delta in shape]
         else:
-            self.hexes = [Hex(self,root)] + [Hex(self,x) for x in shape]
+            self.hexes = [Hex(self, root)] + [Hex(self, x) for x in shape]
         self.name = name
-
 
     def __str__(self):
         return self.name
