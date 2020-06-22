@@ -6,7 +6,6 @@ This file has lots of different helpers for working with locations and
 computing linked regions
 """
 import numpy as np
-from copy import deepcopy
 
 unit_directions = [
     np.matrix([1,0,-1]),

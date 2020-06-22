@@ -10,7 +10,6 @@ import graphics.screen_input as screen_input
 import copy
 
 # TODO:
-# - confirmation before ending game
 # - cancel options - ex. when choosing spell to cast
 
 class Game(object):
@@ -23,7 +22,7 @@ class Game(object):
         return str(self.current_board)
 
     def is_game_over(self):
-        #for each aura'd hex in a room, check if the linked region has all seven rooms.
+        # for each aura'd hex in a room, check if the linked region has all seven rooms.
         winners = []
         for hex in self.current_board.rooms[0].hexes:
             if hex.aura:
@@ -48,7 +47,6 @@ class Game(object):
         player = self.get_current_player()
         adj_hexes = find_adjacent_hexes(self.current_board, player.hex)
         adj_hexes_wo_objs = [h for h in adj_hexes if h.occupant == None]
-        # TODO: make functions in location.py to do ^ filtering + its opposite
 
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
         hex_idx = screen_input.choose_location(self.screen, coords, 'Click hex to move to')
@@ -105,7 +103,7 @@ class Game(object):
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
         hex_idx = screen_input.choose_location(self.screen, coords, 'Click where to drop')
         if hex_idx == None:
-            raise InvalidMove('There is no adjacent hex where you can')
+            raise InvalidMove('There is no adjacent hex where you can drop')
         hex = adj_hexes_wo_objs[hex_idx]
 
         # prompt for artwork choice if needed
@@ -227,7 +225,13 @@ class Game(object):
                 elif move_type == 'reset turn':
                     self.reset_turn()
                 elif move_type == 'end game':
-                    break
+                    confirmation = screen_input.choose_from_list(
+                        self.screen,
+                        ['Yes', 'No'],
+                        'Are you sure you want to forefit and end the game?'
+                    )
+                    if confirmation == 'Yes':
+                        break
             except InvalidMove as move:
                 self.screen.info.error = '{} '.format(move)
 

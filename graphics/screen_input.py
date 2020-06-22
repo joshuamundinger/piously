@@ -85,7 +85,7 @@ def choose_location(screen, axial_pos, prompt_text="Click a location"):
             screen.toggle_action_buttons()
             return ret
         else:
-            screen.info.error = 'Please click one of {}'.format(axial_pos)
+            screen.info.error = 'Please click one of: {}'.format(' '.join(map(str, axial_pos)))
 
 """
 Choose a location from a list of hexes based on clicking a hex
