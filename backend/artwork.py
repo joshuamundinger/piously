@@ -1,5 +1,5 @@
 """
-One of the seven magical artworks.
+One of the seven magical artworks. Like Players, Artworks can occupy a Hex.
 """
 
 class Artwork(object):
@@ -12,9 +12,5 @@ class Artwork(object):
         location = 'Not placed'
         if self.hex != None:
             location = self.hex.location
-        
-        return "{color}\t({faction}:{location})".format(
-            color = self.color,
-            faction = self.faction or 'No faction',
-            location = location,
-        )
+
+        return "{color} artwork".format(color = self.color)

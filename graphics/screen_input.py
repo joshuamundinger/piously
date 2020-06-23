@@ -1,8 +1,8 @@
-from backend.location import location_to_axial
 """
 User input helper functions. Currently they all rely on keypresses, but eventaully they will be based on clicks on the UI.
 Some of them are just to make testing easier
 """
+from backend.location import location_to_axial
 
 def get_keypress(screen):
     screen.key = None
@@ -24,12 +24,11 @@ def get_click(screen):
           axial_pos = screen.click_hex
           return axial_pos
 
+'''
+Params: none
+Returns: string representation of the move to make
+'''
 def choose_move(screen):
-    '''
-    Params: none
-    Returns: string representation of the move to make
-    '''
-
     screen.info.text = 'Select option (click button or use keybinding)'
     return get_keypress(screen)
 
@@ -44,8 +43,8 @@ def choose_from_list(screen, ls, prompt_text='Choose one:'):
         return ls[0]
 
     prompt = prompt_text
-    for idx, obj in enumerate(ls):
-        prompt += ' ({}) {}'.format(idx + 1, obj)
+    for idx, obj in enumerate(ls, start=1):
+        prompt += ' ({}) {}'.format(idx, obj)
 
     screen.info.text = prompt
     screen.toggle_action_buttons()
@@ -65,7 +64,7 @@ Choose a location based on clicking a hex
 Params:
  - screen: a PiouslyApp() UI object
  - axial_pos: a list of tuples (x-coord, y-coord)
- - prompt_text: a string to print to give the user extra info
+ - prompt_text: a string to display to give the user extra info
 
 Returns: index of the chosen location
 """
@@ -86,7 +85,7 @@ def choose_location(screen, axial_pos, prompt_text="Click a location"):
             screen.toggle_action_buttons()
             return ret
         else:
-            screen.info.error = 'Please click one of {}'.format(axial_pos)
+            screen.info.error = 'Please click one of: {}'.format(' '.join(map(str, axial_pos)))
 
 """
 Choose a location from a list of hexes based on clicking a hex
@@ -103,5 +102,5 @@ def choose_hexes(screen, hex_list, prompt_text="Choose a hex:", return_index = F
     chosen_index = choose_location(screen, axial_coordinates, prompt_text)
     if return_index:
         return chosen_index
-    else:
+    elif chosen_index != None:
         return hex_list[chosen_index]

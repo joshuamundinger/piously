@@ -1,14 +1,23 @@
 """
-Overall board class to store past and current game state.
+Board stores a full set of game state:
+ - 7 Rooms with 4 Hexes each, and the Shovel
+ - 14 Spells
+ - 7 Artworks
+ - 2 Players
+ - the number of actions remaining for the current player
+ - the faction of the current player
+ - a graphics screen to send data to be displayed
+
+ Creating a new board creates a full set of objects (Rooms, Spells, Artworks, Players)
 """
 import numpy as np
 
-from backend.errors import InvalidMove
 from backend.artwork import Artwork
+from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
+from backend.location import neighboring_region
 from backend.player import Player
 from backend.room import Room
-import backend.location as location
 from backend.spell import (
     Priestess,
     Purify,
@@ -39,12 +48,12 @@ class Board(object):
 
         # IDEA: what if each Room inits it's spells and each a_spell inits it's artworks and neither are stored directly on board
         self.artworks = artworks or [
-            Artwork('Pink  '), # weird spacing is intentional so that they print nicely with \t
+            Artwork('Pink'),
             Artwork('Indigo'),
             Artwork('Orange'),
-            Artwork('Umber '),
+            Artwork('Umber'),
             Artwork('Sapphire'),
-            Artwork('Lime  '),
+            Artwork('Lime'),
             Artwork('Yellow'),
         ]
         self.spells = spells or [
@@ -109,9 +118,8 @@ class Board(object):
         ]
 
     def __str__(self):
-        return '\n***BOARD***\n{faction}\'s turn\nactions:{actions}\nplayers:{players}\nartworks:{artworks}\n***********\n'.format(
-            faction = self.faction,
-            actions = self.actions,
+        return '\n***BOARD***\n{overview}\nplayers:{players}\nartworks:{artworks}\n'.format(
+            overview = get_state_msg(),
             players = display_list(self.players.values()),
             artworks = display_list(self.artworks),
         )
@@ -150,28 +158,18 @@ class Board(object):
         spells = spells or 'No spells'
         return '{} : {} : {}'.format(turn, actions, spells)
 
-    def flush_msg(self, msg):
-        print('flush: {}'.format(msg))
-        self.screen.info.text = msg
-
     def get_placed_objects(self):
         # return all objects currently placed on board
-        return [art for art in self.artworks if art.hex] + [player for player in self.players.values() if player.hex]
+        artworks = [art for art in self.artworks if art.hex]
+        players = [player for player in self.players.values() if player.hex]
+        return artworks + players
 
     def get_placed_non_player_objects(self):
         return [obj for obj in self.get_placed_objects() if obj != self.get_current_player()]
 
-    ######################
-    # board layout methods
-    ######################
-    """
-    # It's not clear that this function has any use.
-    def is_connected(self):
-        # does a breath-first search from the 0th hex in the 0th room,
-        # then checks if all hexes have been found this way.
-        number_of_hexes = sum([len(room.hexes) for room in self.rooms])
-        return number_of_hexes == len(linked_search(self, self.rooms[0].hexes[0], False, False))
-    """
+    ########################
+    # board layout methods #
+    ########################
 
     def get_room(self, hex):
         # find the room containing the given hex
@@ -183,46 +181,21 @@ class Board(object):
 
     def get_neighboring_rooms(self, starting_room):
         neighboring_rooms = []
-        for current_hex in location.neighboring_region(self, starting_room):
+        for current_hex in neighboring_region(self, starting_room):
             current_room = self.get_room(current_hex)
             if not(current_room in neighboring_rooms):
                 neighboring_rooms.append(current_room)
         return neighboring_rooms
 
-    def get_adjacent_hexes(self, hex):
-        """
-        Returns a list of 0-6 adjacent Hexes.
-        (0 is only possible if you input the Shovel and it's not on the board)
-        """
-        print('WARNING: get_adjacent_hexes not implemented')
-        return []
-
-    def get_adjacent_rooms(self, room):
-        """
-        Returns a list of 0-6 adjacent Rooms.
-        (0 is only possible if you input the Shovel and it's not on the board)
-        """
-        print('WARNING: get_adjacent_rooms not implemented')
-        return []
-
-    def get_linked_rooms(self, hex):
-        """
-        Returns a list of 0-6 linked Rooms.
-
-        Never includes the Shovel.
-        """
-        print('WARNING: get_linked_rooms not implemented')
-        return []
+    ############################
+    # dynamic gameplay methods #
+    ############################
 
     def end_turn(self):
         """Reset board values for start of new turn"""
         self.actions = 3
         [spell.untap() for spell in self.spells]
         self.faction = other_faction(self.faction)
-
-    #####################################
-    # dynamic gameplay methods
-    #####################################
 
     def move_object(self, occupant, from_hex=None, to_hex=None):
             # order matters here, updating occupant.hex last make it ok for from_hex to be occupant.hex initially
@@ -241,9 +214,10 @@ class Board(object):
         object2.hex.occupant = object2
         object1.hex.occupant = object1
 
-    #########################
-    # flush display data methods
-    #########################
+    ##############################
+    # flush display data methods #
+    ##############################
+
     def flush_hex_data(self):
         hex_maps = []
         for room in self.rooms:
@@ -251,10 +225,9 @@ class Board(object):
                 hex_maps.append({
                     'x': hex.location.flat[0],
                     'y': hex.location.flat[1],
-                    'room': hex.room.name[0],
+                    'room': hex.room.name,
                 })
         self.screen.make_map(hex_maps)
-
 
     def flush_player_data(self):
         data = []
@@ -294,149 +267,4 @@ class Board(object):
         self.flush_aura_data()
         self.flush_player_data()
         self.flush_artwork_data()
-        self.screen.board_state.text = self.current_board.get_state_msg()
-
-
-    ##########################
-    # string to object methods
-    ##########################
-    # TODO: remove these when Operation is removed
-
-    """
-    Params: string should be one of [1 5 q t a g z d l]
-    Returns: corresponding Artwork or Player object
-    """
-    def str_to_occupant(self, string):
-        if string == '1':
-            return self.artworks[0]
-        elif string == '5':
-            return self.artworks[1]
-        elif string == 'q':
-            return self.artworks[2]
-        elif string == 't':
-            return self.artworks[3]
-        elif string == 'a':
-            return self.artworks[4]
-        elif string == 'g':
-            return self.artworks[5]
-        elif string == 'z':
-            return self.artworks[6]
-        elif string == 'd':
-            return self.players['Dark']
-        elif string == 'l':
-            return self.players['Light']
-        else:
-            raise NameError('Invalid occupant string {}'.format(string))
-
-    """
-    Params: string should be one of [12 56 qw ty as gh zx] (first one is artwork, second is bewitchment)
-    Returns: corresponding Spell object
-    """
-    def str_to_spell(self, string):
-        if string == '1':
-            return self.spells[0]
-        elif string == '2':
-            return self.spells[1]
-        elif string == '5':
-            return self.spells[2]
-        elif string == '6':
-            return self.spells[3]
-        elif string == 'q':
-            return self.spells[4]
-        elif string == 'w':
-            return self.spells[5]
-        elif string == 't':
-            return self.spells[6]
-        elif string == 'y':
-            return self.spells[7]
-        elif string == 'a':
-            return self.spells[8]
-        elif string == 's':
-            return self.spells[9]
-        elif string == 'g':
-            return self.spells[10]
-        elif string == 'h':
-            return self.spells[11]
-        elif string == 'z':
-            return self.spells[12]
-        elif string == 'x':
-            return self.spells[13]
-        else:
-            raise NameError('Invalid spell string {}'.format(string))
-
-    """
-    Params: string should be one of [1234 5678 qwer tyui asdf ghjk zxcv b n]
-     - TODO: consider instead encoding hexes like: p0 p1 p2 p3 i0 i1 i2 i3 ...
-    Returns: corresponding Hex object
-    """
-    def str_to_hex(self, string):
-        # P
-        if string == '1':
-            return self.rooms[0].hexes[0]
-        elif string == '2':
-            return self.rooms[0].hexes[1]
-        elif string == '3':
-            return self.rooms[0].hexes[2]
-        elif string == '4':
-            return self.rooms[0].hexes[3]
-        # I
-        elif string == '5':
-            return self.rooms[1].hexes[0]
-        elif string == '6':
-            return self.rooms[1].hexes[1]
-        elif string == '7':
-            return self.rooms[1].hexes[2]
-        elif string == '8':
-            return self.rooms[1].hexes[3]
-        # O
-        elif string == 'q':
-            return self.rooms[2].hexes[0]
-        elif string == 'w':
-            return self.rooms[2].hexes[1]
-        elif string == 'e':
-            return self.rooms[2].hexes[2]
-        elif string == 'r':
-            return self.rooms[2].hexes[3]
-        # U
-        elif string == 't':
-            return self.rooms[3].hexes[0]
-        elif string == 'y':
-            return self.rooms[3].hexes[1]
-        elif string == 'u':
-            return self.rooms[3].hexes[2]
-        elif string == 'i':
-            return self.rooms[3].hexes[3]
-        # S
-        elif string == 'a':
-            return self.rooms[4].hexes[0]
-        elif string == 's':
-            return self.rooms[4].hexes[1]
-        elif string == 'd':
-            return self.rooms[4].hexes[2]
-        elif string == 'f':
-            return self.rooms[4].hexes[3]
-        # L
-        elif string == 'g':
-            return self.rooms[5].hexes[0]
-        elif string == 'h':
-            return self.rooms[5].hexes[1]
-        elif string == 'j':
-            return self.rooms[5].hexes[2]
-        elif string == 'k':
-            return self.rooms[5].hexes[3]
-        # Y
-        elif string == 'z':
-            return self.rooms[6].hexes[0]
-        elif string == 'x':
-            return self.rooms[6].hexes[1]
-        elif string == 'c':
-            return self.rooms[6].hexes[2]
-        elif string == 'v':
-            return self.rooms[6].hexes[3]
-        # others
-        elif string == 'b': # shovel
-            return self.rooms[7].hexes[0]
-        elif string == 'n':
-            return None
-        else:
-            raise NameError('Invalid hex string {}'.format(string))
+        self.screen.board_state.text = self.get_state_msg()

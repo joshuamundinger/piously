@@ -1,14 +1,13 @@
 '''
-This file implements a display for piously using pygame
+This file implements a display for Piously using pygame
 
-credit to Mekire on github for the starting code
-https://github.com/Mekire/hex_pygame_redit
+credit to Mekire for the starting code - https://github.com/Mekire/hex_pygame_redit
 '''
-from sys import exit
-from numpy import average, sqrt, unique
-import pygame as pg
 from backend.helpers import other_faction
 from graphics.button import Button
+from numpy import average, sqrt, unique
+from sys import exit
+import pygame as pg
 
 BACKGROUND = pg.Color("white")
 SCREEN_SIZE = (800, 600)
@@ -16,7 +15,7 @@ TRANSPARENT = (0, 0, 0, 0)
 FPS = 10 # 60
 FONT = "Arial"
 
-ROOMS = ["P", "I", "O", "U", "S", "L", "Y"]
+ROOMS = ["P", "I", "O", "U", "S", "L", "Y", "Shovel", "Temp"]
 
 ROOM_COLORS = {
     "P" : pg.Color("pink"),
@@ -26,6 +25,8 @@ ROOM_COLORS = {
     "S" : pg.Color("turquoise2"),
     "L" : pg.Color("yellowgreen"),
     "Y" : pg.Color("yellow2"),
+    "Shovel" : pg.Color("tan"),
+    "Temp": pg.Color("white"),
 }
 
 FACTION_COLORS = {
@@ -37,7 +38,7 @@ FACTION_COLORS = {
 S = 12 # half side length of hex
 H = int(S*sqrt(3)) # half height of hex
 HEX_POINTS = (0, H), (S, 0), (3*S, 0), (4*S, H), (3*S, 2*H), (S, 2*H)
-HEX_FOOTPRINT = (4*S+2, 2*H+2) # adding one so that the outlines don't get cut off
+HEX_FOOTPRINT = (4*S+1, 2*H+1) # adding one so that the outlines don't get cut off
 ROW_OFFSET = 0, 2*H
 COL_OFFSET = 3*S, H
 
@@ -45,13 +46,13 @@ COL_OFFSET = 3*S, H
 BUTTON_SIZE = (SCREEN_SIZE[0]/4, 30)
 
 # TODO:
-# - display more board state (ex spells faction+tapped) on screen
+# - display spells nicely (ex mouseover description)
 # - indicate valid hexes to click visually
 # - make the player object prettier
 #   - https://www.google.com/url?sa=i&url=https%3A%2F%2Fdlpng.com%2Fpng%2F4443758&psig=AOvVaw0OV8088DkAY7x2EFMcegXh&ust=1592797306363000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCODByL_-keoCFQAAAAAdAAAAABAM
 # - move some classes into seperate files
 # - improve handle_click to use mask not rect (right now it will sometimes take wrong hex)
-
+# - figure out + probably remove layer
 class HexTile(pg.sprite.Sprite):
     def __init__(self, pos, room, axial_pos, *groups):
         # *groups is initialized as pg.sprite.LayeredUpdates()
@@ -61,7 +62,7 @@ class HexTile(pg.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         self.mask = self.make_mask()
         self.room = room
-        self.layer = 0
+        self.layer = 0 # used to control the render order of the tiles
         self.axial_pos = axial_pos
 
     def name(self):
@@ -80,21 +81,24 @@ class HexTile(pg.sprite.Sprite):
         pg.draw.polygon(temp_image, pg.Color("red"), HEX_POINTS)
         return pg.mask.from_surface(temp_image)
 
-class CursorHighlight(pg.sprite.Sprite):
+# When the mouse is over a HexTile, displays the room + coordinates of the
+# hex and changes the color of the hex slightly
+class HexHover(pg.sprite.Sprite):
     COLOR = (50, 50, 200, 150) # transparent blue
 
     def __init__(self, *groups):
-        super(CursorHighlight, self).__init__(*groups)
+        super(HexHover, self).__init__(*groups)
         self.image = pg.Surface(HEX_FOOTPRINT).convert_alpha()
         self.image.fill(TRANSPARENT)
         pg.draw.polygon(self.image, self.COLOR, HEX_POINTS)
+
         self.rect = pg.Rect((0,0,1,1))
         self.mask = pg.Mask((1,1))
         self.mask.fill()
         self.target = None
         self.hex = None
-        self.label_image = None
-        self.label_rect = None
+        self.hex_label = None
+        self.hex_label_rect = None
         self.font = pg.font.SysFont(FONT, 24)
 
     def update(self, pos, tiles, screen_rect):
@@ -104,20 +108,22 @@ class CursorHighlight(pg.sprite.Sprite):
             true_hit = max(hits, key=lambda x: x.rect.bottom)
             self.target = true_hit.rect.topleft
             self.hex = true_hit.room
-            self.label_image = text_render(true_hit.name(), self.font)
+
+            # diplay the room info for the hovered hex
+            self.hex_label = text_render(true_hit.name(), self.font)
 
             # to make text follow cursor pass midbottom=pos to get_rect
             # or midbottom=screen_rect.midbottom to put at bottom of screen
             text_pos = (0, 2*BUTTON_SIZE[1] + 5)
-            self.label_rect = self.label_image.get_rect(topleft=text_pos)
-            self.label_rect.clamp_ip(screen_rect)
+            self.hex_label_rect = self.hex_label.get_rect(topleft=text_pos)
+            self.hex_label_rect.clamp_ip(screen_rect)
         else:
             self.hex = None
 
     def draw(self, surface):
         if self.hex:
             surface.blit(self.image, self.target)
-            surface.blit(self.label_image, self.label_rect)
+            surface.blit(self.hex_label, self.hex_label_rect)
 
 class PiouslyApp(object):
     def __init__(self):
@@ -127,12 +133,12 @@ class PiouslyApp(object):
         self.screen = pg.display.get_surface()
         self.screen_rect = self.screen.get_rect()
         self.clock = pg.time.Clock()
-        self.cursor = CursorHighlight()
+        self.cursor = HexHover()
         self.hex_data = None
         self.tiles = None
-        self.player_data = None
-        self.artwork_data = None
-        self.aura_data = None
+        self.player_data = []
+        self.artwork_data = []
+        self.aura_data = []
         self.done = False
         self.key = None
         self.click_hex = None
@@ -265,14 +271,12 @@ class PiouslyApp(object):
             for button in self.buttons:
                 if button.handle_event(event):
                     self.key = button.text
-                    print("Button: {}".format(button.text))
                     return
 
             if event.type == pg.MOUSEBUTTONDOWN:
                self.handle_click(event.pos)
             elif event.type == pg.KEYDOWN:
                 self.key = pg.key.name(event.key)
-                print("You entered: ({})".format(self.key))
 
     def loop_once(self):
         self.event_loop()
@@ -287,7 +291,6 @@ class PiouslyApp(object):
     def handle_click(self, pos):
         for hex in self.tiles:
             if hex.rect.collidepoint(pos):
-                print('clicked {}'.format(hex.name()))
                 self.click_hex = hex.axial_pos
                 return
 
