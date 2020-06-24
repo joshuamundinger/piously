@@ -31,10 +31,9 @@ def hexes_colocated(hex1, hex2):
 
 # given a board and a location, return the hex at this location, or None if no hex exists
 def find_hex(board, location):
-    for room in board.rooms:
-        for test_hex in room.hexes:
-            if (test_hex.location == location).all():
-                return test_hex
+    for test_hex in board.get_all_hexes():
+        if (test_hex.location == location).all():
+            return test_hex
     return None
 
 # find the hex at direction relative to direction
@@ -140,6 +139,7 @@ def find_room(board, hex):
 def find_adjacent_rooms(board, starting_room):
     adjacent_rooms = []
     for hex in starting_room.hexes:
+        # find the rooms which are next to hex
         for room in [find_room(board, test_hex) for test_hex in find_adjacent_hexes(board, hex)]:
             if not( room == starting_room or room in adjacent_rooms):
                 adjacent_rooms.append(room)

@@ -5,10 +5,10 @@ from backend.hex import Hex
 
 class Room(object):
     def __init__(self, name, root, shape, a_spell, b_spell, relative_shape=True):
-        # root is the location of the first hex of the room
+        # root is the location of the first hex of the room if relative_shape
         # shape is a list of vectors:
         #   the differentials between the root and other hexes in the room, if relative_shape
-        #   the locations of other hexes, if not relative_shape
+        #   the locations of all hexes, if not relative_shape
 
         self.root = root
         self.artwork = a_spell
@@ -18,7 +18,8 @@ class Room(object):
         if relative_shape:
             self.hexes = [Hex(self, root)] + [Hex(self, root + delta) for delta in shape]
         else:
-            self.hexes = [Hex(self, root)] + [Hex(self, x) for x in shape]
+            #ignore 
+            self.hexes = [Hex(self, x) for x in shape]
         self.name = name
 
     def __str__(self):

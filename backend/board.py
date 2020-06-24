@@ -119,7 +119,7 @@ class Board(object):
 
     def __str__(self):
         return '\n***BOARD***\n{overview}\nplayers:{players}\nartworks:{artworks}\n'.format(
-            overview = get_state_msg(),
+            overview = self.get_state_msg(),
             players = display_list(self.players.values()),
             artworks = display_list(self.artworks),
         )
@@ -205,19 +205,24 @@ class Board(object):
         object2.hex.occupant = object2
         object1.hex.occupant = object1
 
+    def get_all_hexes(self):
+            # returns a list of all hexes
+            hex_list = []
+            for room in self.rooms:
+                hex_list += room.hexes
+            return hex_list
     ##############################
     # flush display data methods #
     ##############################
 
     def flush_hex_data(self):
         hex_maps = []
-        for room in self.rooms:
-            for hex in room.hexes:
-                hex_maps.append({
-                    'x': hex.location.flat[0],
-                    'y': hex.location.flat[1],
-                    'room': hex.room.name,
-                })
+        for hex in self.get_all_hexes():
+            hex_maps.append({
+                'x': hex.location.flat[0],
+                'y': hex.location.flat[1],
+                'room': hex.room.name,
+            })
         self.screen.make_map(hex_maps)
 
     def flush_spell_data(self):
@@ -256,14 +261,13 @@ class Board(object):
 
     def flush_aura_data(self):
         data = []
-        for room in self.rooms:
-            for hex in room.hexes:
-                if hex.aura:
-                    data.append({
-                        'x': hex.location.flat[0],
-                        'y': hex.location.flat[1],
-                        'faction': hex.aura,
-                    })
+        for hex in self.get_all_hexes():
+            if hex.aura:
+                data.append({
+                    'x': hex.location.flat[0],
+                    'y': hex.location.flat[1],
+                    'faction': hex.aura,
+                })
         self.screen.aura_data = data
 
     def flush_gamepieces(self):
