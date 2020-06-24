@@ -277,7 +277,7 @@ class Shovel(Spell):
         super(Shovel, self).__init__() # initializes faction and tapped
         self.name = 'Shovel'
         self.color = 'Sapphire'
-        self.description = "Move Shovel room to adjacent space,\n or if you\'re on it, move Shovel room anywhere"
+        self.description = "Move Shovel room to adjacent space, or if you\'re on the Shovel move it anywhere"
 
     def create_Shovel_room(self, location):
         return Room("Shovel",
@@ -286,7 +286,7 @@ class Shovel(Spell):
             )
 
     def cast(self, board):
-        self._validate_spell_status()
+        self._validate_spell_status(board)
 
         # check if the shovel has been placed yet
         if len(board.rooms) == 7:
