@@ -15,7 +15,7 @@ import numpy as np
 from backend.artwork import Artwork
 from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
-from backend.location import neighboring_region
+from backend.location import neighboring_region, find_adjacent_rooms
 from backend.player import Player
 from backend.room import Room
 from backend.spell import (
@@ -177,6 +177,17 @@ class Board(object):
             if not(current_room in neighboring_rooms):
                 neighboring_rooms.append(current_room)
         return neighboring_rooms
+
+    def connectivity_test(self):
+        connectivity = True
+        piously = ['P','I','O','U','S','L','Y']
+        piously_rooms = [room for room in self.rooms if room.name in piously]
+        for current_room in piously_rooms:
+            piously_neighbors = [ room for room in find_adjacent_rooms(self,current_room) if room.name in piously]
+            if len(piously_neighbors) < 2:
+                connectivity = False
+        # TODO: check board is connected
+        return connectivity
 
     ############################
     # dynamic gameplay methods #

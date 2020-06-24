@@ -2,6 +2,7 @@
 One of the seven rooms of the temple.
 """
 from backend.hex import Hex
+import numpy as np
 
 class Room(object):
     def __init__(self, name, root, shape, a_spell, b_spell, relative_shape=True):
@@ -24,3 +25,15 @@ class Room(object):
 
     def __str__(self):
         return self.name
+
+    def rotate(self, increment):
+        # rotate the room around the root (self.hexes[0]) counterclockwise through angle (2pi/6)*increment
+        # this matrix rotates row vectors in the plane x1 + x2 + x3 = 0 through 2pi/6
+        rotate_matrix = np.matrix([[ 0,0,-1],[-1,0,0],[0,-1,0]]).astype(int)
+        for hex in self.hexes:
+            hex.location = ((hex.location-self.hexes[0].location) * (rotate_matrix ** increment) + self.hexes[0].location).astype(int)
+
+    def translate(self, displacement):
+        # moves the whole room by displacement
+        for hex in self.hexes:
+            hex.location = hex.location + displacement

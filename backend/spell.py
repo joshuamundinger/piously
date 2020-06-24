@@ -8,7 +8,7 @@ and may have a pointer to an associated artwork.
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.room import Room
-from graphics.screen_input import choose_from_list, choose_hexes
+from graphics.screen_input import choose_from_list, choose_hexes, get_keypress
 from copy import deepcopy
 
 import backend.location as location
@@ -271,6 +271,54 @@ class Stonemason(Spell):
         self.color = 'Sapphire'
         self.description = 'Move linked room anywhere'
         self.artwork = artwork
+    
+    def cast(self, board):
+        self._validate_artwork_status(board)
+        moving_room = choose_from_list(
+            board.screen,
+            location.linked_rooms(board, self.artwork.hex),
+            prompt_text="Choose a linked room to move:"
+        )
+        board.screen.info.text = "Arrow keys move Room {}. \',\' and \'.\' rotate. Enter to finish.".format(moving_room)
+        finished_with_stonemason = False
+        
+        while not(finished_with_stonemason):
+            key = get_keypress(board.screen)
+            if key == "return":
+                #check to see if no hexes overlap
+                finished_with_stonemason = True
+                #check for collisions
+                all_hexes = board.get_all_hexes()
+                for moving_hex in moving_room.hexes:
+                    counter = 0
+                    for hex in all_hexes:
+                        if location.hexes_colocated(moving_hex, hex):
+                            counter += 1
+                    if counter > 1:
+                        finished_with_stonemason = False
+                        board.screen.info.error = "Overlaps are death."
+                        break
+                # TODO: CHECK CONNECTIVITY RULES
+                if not board.connectivity_test():
+                    board.screen.info.error = "Board fails connectivity rules."
+                    finished_with_stonemason = False
+            elif key == "left":
+                moving_room.translate(np.matrix([0,-1,1]))
+            elif key == "right":
+                moving_room.translate(np.matrix([0,1,-1]))
+            elif key == "up":
+                moving_room.translate(np.matrix([-1,0,1]))
+            elif key == "down":
+                moving_room.translate(np.matrix([1,0,-1]))
+            elif key == ",":
+                moving_room.rotate(1)
+            elif key == ".":
+                moving_room.rotate(int(-1))
+            board.flush_hex_data()
+            board.flush_gamepieces()
+        board.screen.info.error = ""
+        self._toggle_tapped()
+        
 
 class Shovel(Spell):
     def __init__(self):
