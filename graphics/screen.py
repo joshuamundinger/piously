@@ -4,7 +4,8 @@ This file implements a display for Piously using pygame
 credit to Mekire for the starting code - https://github.com/Mekire/hex_pygame_redit
 '''
 from backend.helpers import other_faction
-from graphics.button import Button
+from graphics.button import Button, TextBox
+from graphics.spell import Spell
 from numpy import average, sqrt, unique
 from sys import exit
 import pygame as pg
@@ -43,16 +44,18 @@ ROW_OFFSET = 0, 2*H
 COL_OFFSET = 3*S, H
 
 # define button size and shape
-BUTTON_SIZE = (SCREEN_SIZE[0]/4, 30)
+BUTTON_SIZE = (int((SCREEN_SIZE[0]-1)/4)-1, 30) # 4 buttons across but with room for 1px padding
+SPELL_SIZE = (150, 30)
+HOVER_TEXT_POS = (5, 2*BUTTON_SIZE[1] + 5)
 
 # TODO:
-# - display spells nicely (ex mouseover description)
 # - indicate valid hexes to click visually
 # - make the player object prettier
 #   - https://www.google.com/url?sa=i&url=https%3A%2F%2Fdlpng.com%2Fpng%2F4443758&psig=AOvVaw0OV8088DkAY7x2EFMcegXh&ust=1592797306363000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCODByL_-keoCFQAAAAAdAAAAABAM
 # - move some classes into seperate files
 # - improve handle_click to use mask not rect (right now it will sometimes take wrong hex)
 # - figure out + probably remove layer
+# - make spells clickable
 class HexTile(pg.sprite.Sprite):
     def __init__(self, pos, room, axial_pos, *groups):
         # *groups is initialized as pg.sprite.LayeredUpdates()
@@ -62,11 +65,11 @@ class HexTile(pg.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         self.mask = self.make_mask()
         self.room = room
-        self.layer = 0 # used to control the render order of the tiles
+        self.layer = 0 # used to control the render order of the hex_tiles
         self.axial_pos = axial_pos
 
     def name(self):
-        return ' {}: ({}, {})'.format(self.room, self.axial_pos[0], self.axial_pos[1])
+        return '{}: ({}, {})'.format(self.room, self.axial_pos[0], self.axial_pos[1])
 
     def make_tile(self, room):
         image = pg.Surface(HEX_FOOTPRINT).convert_alpha()
@@ -101,9 +104,9 @@ class HexHover(pg.sprite.Sprite):
         self.hex_label_rect = None
         self.font = pg.font.SysFont(FONT, 24)
 
-    def update(self, pos, tiles, screen_rect):
+    def update(self, pos, hex_tiles, screen_rect):
         self.rect.topleft = pos
-        hits = pg.sprite.spritecollide(self, tiles, 0, pg.sprite.collide_mask)
+        hits = pg.sprite.spritecollide(self, hex_tiles, 0, pg.sprite.collide_mask)
         if hits:
             true_hit = max(hits, key=lambda x: x.rect.bottom)
             self.target = true_hit.rect.topleft
@@ -112,10 +115,9 @@ class HexHover(pg.sprite.Sprite):
             # diplay the room info for the hovered hex
             self.hex_label = text_render(true_hit.name(), self.font)
 
-            # to make text follow cursor pass midbottom=pos to get_rect
+            # to make text follow hex_hover pass midbottom=pos to get_rect
             # or midbottom=screen_rect.midbottom to put at bottom of screen
-            text_pos = (0, 2*BUTTON_SIZE[1] + 5)
-            self.hex_label_rect = self.hex_label.get_rect(topleft=text_pos)
+            self.hex_label_rect = self.hex_label.get_rect(topleft=HOVER_TEXT_POS)
             self.hex_label_rect.clamp_ip(screen_rect)
         else:
             self.hex = None
@@ -129,64 +131,98 @@ class PiouslyApp(object):
     def __init__(self):
         pg.init()
         pg.display.set_mode(SCREEN_SIZE)
+        pg.display.set_caption('Piously')
 
         self.screen = pg.display.get_surface()
         self.screen_rect = self.screen.get_rect()
         self.clock = pg.time.Clock()
-        self.cursor = HexHover()
+
+        # variables for rendering the board of hex tiles
+        self.hex_tiles = None
         self.hex_data = None
-        self.tiles = None
+        self.axial_avg_x = 0
+        self.axial_avg_y = 0
+        self.hex_hover = HexHover()
+
+        # variables for rendering game objects
+        self.spells = []
+        self.spell_data = []
         self.player_data = []
         self.artwork_data = []
         self.aura_data = []
-        self.done = False
-        self.key = None
-        self.click_hex = None
-        self.axial_avg_x = 0
-        self.axial_avg_y = 0
 
+        # variables for backend to read
+        self.key = None # most recent keypress
+        self.click_hex = None # axial pos of clicked hex
+
+        # text boxes
+        w, h = SPELL_SIZE
+        W, H = SCREEN_SIZE
+        self.board_state = TextBox(pg.Rect((0, 0), (w, 2*h)), self.screen)
+        self.info = TextBox(pg.Rect((w, 0), (W-w, 2*h)), self.screen)
+
+        # buttons
         w, h = BUTTON_SIZE
-        # Rect((pos), (dim))
-        self.info = Button(
-            pg.Rect((0, SCREEN_SIZE[1]-2*h), (SCREEN_SIZE[0], 2*h)),
-            '', '', self.screen, disabled=True
-        )
-        self.board_state = Button(
-            pg.Rect((0, SCREEN_SIZE[1]-3*h), (SCREEN_SIZE[0], h)),
-            '', '', self.screen, disabled=True
-        )
+        w, h = w + 1, h + 1 # add padding between buttons
         self.action_buttons = [
-            Button(pg.Rect((0, 0), BUTTON_SIZE), 'move', '1', self.screen),
-            Button(pg.Rect((w, 0), BUTTON_SIZE), 'bless', '2', self.screen),
-            Button(pg.Rect((2*w, 0), BUTTON_SIZE), 'drop', '3', self.screen),
-            Button(pg.Rect((3*w, 0), BUTTON_SIZE), 'pick up', '4', self.screen),
-            Button(pg.Rect((0, h), BUTTON_SIZE), 'cast spell', 'q', self.screen),
-            Button(pg.Rect((w, h), BUTTON_SIZE), 'end turn', 'w', self.screen),
-            Button(pg.Rect((2*w, h), BUTTON_SIZE), 'reset turn', 'e', self.screen),
-            Button(pg.Rect((3*w, h), BUTTON_SIZE), 'end game', 'r', self.screen),
+            Button(pg.Rect((2, H-2*h), BUTTON_SIZE), 'move', '1', self.screen),
+            Button(pg.Rect((2+w, H-2*h), BUTTON_SIZE), 'bless', '2', self.screen),
+            Button(pg.Rect((2+2*w, H-2*h), BUTTON_SIZE), 'drop', '3', self.screen),
+            Button(pg.Rect((2+3*w, H-2*h), BUTTON_SIZE), 'pick up', '4', self.screen),
+            Button(pg.Rect((2, H-h), BUTTON_SIZE), 'cast spell', 'q', self.screen),
+            Button(pg.Rect((2+w, H-h), BUTTON_SIZE), 'end turn', 'w', self.screen),
+            Button(pg.Rect((2+2*w, H-h), BUTTON_SIZE), 'reset turn', 'e', self.screen),
+            Button(pg.Rect((2+3*w, H-h), BUTTON_SIZE), 'end game', 'r', self.screen),
         ]
         self.buttons = self.action_buttons + [self.info, self.board_state]
 
     def toggle_action_buttons(self):
+        # assumes all action buttons have the same disabled state
         new_state = not self.action_buttons[0].disabled
         for button in self.action_buttons:
             button.disabled = new_state
 
+    # TODO: maybe replace this with a draw method that updates the positions
+    # rather than making new objects when the board changes?
     def make_map(self, hexes):
         # hexes is a list of hashes each with
         #  'x': int, x-coord axial
         #  'y': int, y-coord axial
         #  'room': string, which room the hex is in
-        tiles = pg.sprite.LayeredUpdates()
+        hex_tiles = pg.sprite.LayeredUpdates()
 
+        # used to center tiles on the screen
         self.axial_avg_x = int(average(unique([hex['x'] for hex in hexes])))
         self.axial_avg_y = int(average(unique([hex['y'] for hex in hexes])))
 
         for hex in hexes:
             pos = self.axial_to_screen(hex['x'], hex['y'])
-            HexTile(pos, hex['room'], (hex['x'], hex['y']), tiles)
+            HexTile(pos, hex['room'], (hex['x'], hex['y']), hex_tiles)
 
-        self.tiles = tiles
+        self.hex_tiles = hex_tiles
+
+    def make_spells(self, spell_data):
+        spells = []
+        for idx, spell in enumerate(spell_data):
+            # putting buttons in column along the left
+            # pos = (0, 3*SPELL_SIZE[1] + idx*SPELL_SIZE[1])
+
+            # putting buttons in column along the right
+            w, h = SPELL_SIZE
+            W = SCREEN_SIZE[0]
+            pos = (W-w, 3*h + idx*(h-1))
+            spell_obj = Spell(
+                rect = pg.Rect(pos, SPELL_SIZE),
+                name = spell['name'],
+                description = spell['description'],
+                description_pos = HOVER_TEXT_POS,
+                faction = spell['faction'],
+                tapped = spell['tapped'],
+                artwork = spell['artwork'],
+                screen = self.screen
+            )
+            spells.append(spell_obj)
+        self.spells = spells
 
     def axial_to_screen(self, x, y):
         # put the (axial_avg_x, axial_avg_y) hex in the center
@@ -243,56 +279,61 @@ class PiouslyApp(object):
             pg.draw.circle(self.screen, color, center, radius)
 
     def update(self):
-        # TODO: only need to update button text
         [button.update() for button in self.buttons]
-        if self.tiles:
-            for sprite in self.tiles:
+        [spell.update() for spell in self.spells]
+        if self.hex_tiles:
+            for sprite in self.hex_tiles:
                 if sprite.layer != sprite.rect.bottom:
-                    self.tiles.change_layer(sprite, sprite.rect.bottom)
-            self.cursor.update(pg.mouse.get_pos(), self.tiles, self.screen_rect)
+                    self.hex_tiles.change_layer(sprite, sprite.rect.bottom)
+            self.hex_hover.update(pg.mouse.get_pos(), self.hex_tiles, self.screen_rect)
 
     def render(self):
         self.screen.fill(BACKGROUND)
         [button.draw() for button in self.buttons]
-        if self.tiles:
-            self.tiles.draw(self.screen)
+        [spell.draw() for spell in self.spells]
+        if self.hex_tiles:
+            self.hex_tiles.draw(self.screen)
+            self.hex_hover.draw(self.screen)
             self.draw_auras()
             self.draw_players()
             self.draw_artworks()
-            self.cursor.draw(self.screen)
         pg.display.update()
 
     def event_loop(self):
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                self.done = True
                 self.close()
 
-            for button in self.buttons:
+            # send events to buttons and spells so they can update state
+            for button in self.action_buttons:
                 if button.handle_event(event):
                     self.key = button.text
                     return
+            for spell in self.spells:
+                spell.handle_event(event)
 
+            # store most recent click / keypress for backend to read
             if event.type == pg.MOUSEBUTTONDOWN:
                self.handle_click(event.pos)
             elif event.type == pg.KEYDOWN:
                 self.key = pg.key.name(event.key)
-
-    def loop_once(self):
-        self.event_loop()
-        self.update()
-        self.render()
-        self.clock.tick(FPS)
 
     def close(self):
         pg.quit()
         exit()
 
     def handle_click(self, pos):
-        for hex in self.tiles:
+        for hex in self.hex_tiles:
             if hex.rect.collidepoint(pos):
                 self.click_hex = hex.axial_pos
                 return
+
+    # main game loop
+    def loop_once(self):
+        self.event_loop()
+        self.update()
+        self.render()
+        self.clock.tick(FPS)
 
 def text_render(text, font, color=pg.Color("black")):
     text_rend = font.render(text, 1, color)

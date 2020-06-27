@@ -147,16 +147,7 @@ class Board(object):
             self.actions,
             '' if self.actions == 1 else 's',
         )
-        spells = ''
-        for spell in self.spells:
-            if spell.faction == self.faction:
-                spells += '[{}]{}{} '.format(
-                    'x' if spell.tapped else ' ',
-                    spell.name,
-                    '+' if spell.artwork and not spell.artwork.hex else '',
-                )
-        spells = spells or 'No spells'
-        return '{} : {} : {}'.format(turn, actions, spells)
+        return '{}, {}'.format(turn, actions)
 
     def get_placed_objects(self):
         # return all objects currently placed on board
@@ -229,6 +220,18 @@ class Board(object):
                 })
         self.screen.make_map(hex_maps)
 
+    def flush_spell_data(self):
+        data = []
+        for spell in self.spells:
+            data.append({
+                'name': spell.name,
+                'description': spell.description,
+                'faction': spell.faction,
+                'tapped': spell.tapped,
+                'artwork': bool(spell.artwork and not spell.artwork.hex)
+            })
+        self.screen.make_spells(data)
+
     def flush_player_data(self):
         data = []
         for player in self.players.values():
@@ -267,4 +270,9 @@ class Board(object):
         self.flush_aura_data()
         self.flush_player_data()
         self.flush_artwork_data()
-        self.screen.board_state.text = self.get_state_msg()
+        self.flush_spell_data()
+        self.screen.board_state.text = '{}\'s turn'.format(self.faction)
+        self.screen.board_state.error = '{} action{} left'.format(
+            self.actions,
+            '' if self.actions == 1 else 's',
+        )
