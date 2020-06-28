@@ -73,46 +73,46 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = rooms or [
-            Room('P', np.matrix([1,2,-3]),
-                [   np.matrix([1,0,-1]),
-                    np.matrix([0,1,-1]),
-                    np.matrix([0,-1,1])
+            Room('P', np.matrix([5,-5,0]),
+                [   np.matrix([-1,0,1]),
+                    np.matrix([-1,1,0]),
+                    np.matrix([1,0,-1])
                 ], self.spells[0], self.spells[1]
             ),
-            Room('I', np.matrix([2,-2,0]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([0,2,-2]),
-                    np.matrix([0,3,-3])
+            Room('I', np.matrix([3,-3,0]),
+                [   np.matrix([1,0,-1]),
+                    np.matrix([2,0,-2]),
+                    np.matrix([3,0,-3])
                 ], self.spells[2], self.spells[3]
             ),
-            Room('O', np.matrix([3,-1,-2]),
+            Room('O', np.matrix([2,0,-2]),
                 [   np.matrix([0,-1,1]),
                     np.matrix([1,-1,0]),
                     np.matrix([1,-2,1])
                 ],  self.spells[4], self.spells[5]
             ),
-            Room('U', np.matrix([3,0,-3]),
-                [   np.matrix([0,1,-1]),
+            Room('U', np.matrix([4,-2,-2]),
+                [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
-                    np.matrix([2,0,-2])
+                    np.matrix([0,2,-2])
                 ],  self.spells[6],self.spells[7]
             ),
-            Room('S', np.matrix([6,-3,-3]),
+            Room('S', np.matrix([2,1,-3]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
                     np.matrix([2,1,-3])
                 ],  self.spells[8], self.spells[9]
             ),
-            Room('L', np.matrix([5,-3,-2]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([0,2,-2]),
-                    np.matrix([-1,3,-2])
+            Room('L', np.matrix([0,2,-2]),
+                [   np.matrix([1,0,-1]),
+                    np.matrix([2,0,-2]),
+                    np.matrix([2,1,-3])
                 ], self.spells[10], self.spells[11]
             ),
-            Room('Y', np.matrix([7,0,-7]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([1,-1,0]),
-                    np.matrix([-1,0,1])
+            Room('Y', np.matrix([1,4,-5]),
+                [   np.matrix([0,-1,1]),
+                    np.matrix([-1,1,0]),
+                    np.matrix([1,0,-1])
                 ], self.spells[12], self.spells[13]
             )
         ]
