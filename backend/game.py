@@ -182,7 +182,32 @@ class Game(object):
         self.old_board = copy.deepcopy(self.current_board)
 
     def place_rooms(self):
-        print('choosing room postitons is not implented yet... initializing positions')
+        self.current_board.screen.board_state.text = 'Board setup'
+        setting_up_board = True
+        current_room_index = 0
+        current_room = self.current_board.rooms[current_room_index]
+        self.current_board.screen.info.text = "Moving room {}".format(current_room.name)
+        self.current_board.screen.info.error = "Arrow keys, , . to move. L to toggle. Enter to end."
+        while setting_up_board:
+            self.current_board.flush_hex_data()
+            key = screen_input.get_keypress(self.current_board.screen)
+            if key == "l":
+                if self.current_board.check_for_collisions(current_room):
+                    self.current_board.screen.info.text = "Moving room {}. Avoid collisions.".format(current_room.name)
+                else:
+                    current_room_index = (current_room_index + 1 % 7) 
+                    current_room = self.current_board.rooms[current_room_index]
+                    self.current_board.screen.info.text = "Moving room {}".format(current_room.name)
+            elif key == "return":
+                # check to see if board satisfies connectivity rules
+                if self.current_board.check_for_collisions(current_room):
+                    self.current_board.screen.info.text = "Moving room {}. Avoid collisions.".format(current_room)
+                else:
+                    setting_up_board = not(self.current_board.connectivity_test())
+                    if setting_up_board:
+                        self.current_board.screen.info.text = "Board not connected."
+            else:
+                current_room.keyboard_movement(key)
         pass
 
     def place_players(self):
@@ -199,7 +224,6 @@ class Game(object):
     def play(self):
         # set up board
         self.place_rooms()
-        self.current_board.flush_hex_data()
         self.place_players()
         self.current_board.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn

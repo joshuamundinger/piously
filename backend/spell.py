@@ -287,33 +287,16 @@ class Stonemason(Spell):
             if key == "return":
                 #check to see if no hexes overlap
                 finished_with_stonemason = True
-                #check for collisions
-                all_hexes = board.get_all_hexes()
-                for moving_hex in moving_room.hexes:
-                    counter = 0
-                    for hex in all_hexes:
-                        if location.hexes_colocated(moving_hex, hex):
-                            counter += 1
-                    if counter > 1:
-                        finished_with_stonemason = False
-                        board.screen.info.error = "Overlaps are death."
-                        break
+                #check moving_room for collisions
+                if board.check_for_collisions(moving_room):
+                    finished_with_stonemason = False
+                    board.screen.info.error = "Overlaps are death."
                 # TODO: CHECK CONNECTIVITY RULES
                 if not board.connectivity_test():
                     board.screen.info.error = "Board fails connectivity rules."
                     finished_with_stonemason = False
-            elif key == "left":
-                moving_room.translate(np.matrix([0,-1,1]))
-            elif key == "right":
-                moving_room.translate(np.matrix([0,1,-1]))
-            elif key == "up":
-                moving_room.translate(np.matrix([-1,0,1]))
-            elif key == "down":
-                moving_room.translate(np.matrix([1,0,-1]))
-            elif key == ",":
-                moving_room.rotate(1)
-            elif key == ".":
-                moving_room.rotate(int(-1))
+            else:
+                moving_room.keyboard_movement(key)
             board.flush_hex_data()
             board.flush_gamepieces()
         board.screen.info.error = ""

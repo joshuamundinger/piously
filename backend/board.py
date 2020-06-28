@@ -15,7 +15,7 @@ import numpy as np
 from backend.artwork import Artwork
 from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
-from backend.location import neighboring_region, find_adjacent_rooms
+from backend.location import neighboring_region, find_adjacent_rooms, hexes_colocated
 from backend.player import Player
 from backend.room import Room
 from backend.spell import (
@@ -188,6 +188,19 @@ class Board(object):
                 connectivity = False
         # TODO: check board is connected
         return connectivity
+    
+    #returns whether room collides with another room in the board
+    def check_for_collisions(self, room):
+        all_hexes = self.get_all_hexes()
+        for moving_hex in room.hexes:
+            counter = 0
+            for hex in all_hexes:
+                if hexes_colocated(moving_hex, hex):
+                    counter += 1
+            if counter > 1:
+                return True
+        return False
+
 
     ############################
     # dynamic gameplay methods #

@@ -37,3 +37,17 @@ class Room(object):
         # moves the whole room by displacement
         for hex in self.hexes:
             hex.location = hex.location + displacement
+
+    def keyboard_movement(self, key):
+        if key == "left":
+            self.translate(np.matrix([0,-1,1]))
+        elif key == "right":
+            self.translate(np.matrix([0,1,-1]))
+        elif key == "up":
+            self.translate(np.matrix([-1,0,1]))
+        elif key == "down":
+            self.translate(np.matrix([1,0,-1]))
+        elif key == ",":
+            self.rotate(1)
+        elif key == ".":
+            self.rotate(int(-1))
