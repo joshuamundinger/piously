@@ -275,12 +275,12 @@ class Game(object):
         self.current_board.screen.info.error = "Arrow keys to move, , . rotate. L to toggle. Enter to end."
         while setting_up_board:
             self.current_board.flush_hex_data()
-            key = screen_input.get_keypress(self.current_board.screen)
+            key = self.screen_input.get_keypress(self.current_board.screen)
             if key == "l":
                 if self.current_board.check_for_collisions(current_room):
                     self.current_board.screen.info.text = "Moving room {}. Avoid collisions.".format(current_room.name)
                 else:
-                    current_room_index = ((current_room_index + 1) % 7) 
+                    current_room_index = ((current_room_index + 1) % 7)
                     current_room = self.current_board.rooms[current_room_index]
                     self.current_board.screen.info.text = "Moving room {}".format(current_room.name)
             elif key == "return":
@@ -300,7 +300,7 @@ class Game(object):
         dark_player = self.current_board.players['Dark']
         player_spots = self.current_board.get_all_hexes()
         self.current_board.screen.board_state.text = "Dark's turn"
-        hex2 = screen_input.choose_hexes(
+        hex2 = self.screen_input.choose_hexes(
             self.current_board.screen,
             player_spots,
             prompt_text = "Place the Dark player"
@@ -309,14 +309,13 @@ class Game(object):
         self.current_board.flush_player_data()
         player_spots.remove(hex2)
         self.current_board.screen.board_state.text = "Light's turn"
-        hex1 = screen_input.choose_hexes(
+        hex1 = self.screen_input.choose_hexes(
             self.current_board.screen,
             player_spots,
             prompt_text = "Place the Light player"
         )
         self.current_board.move_object(light_player, to_hex=hex1)
         self.current_board.flush_player_data()
-        
 
     def play(self):
         # set up board
