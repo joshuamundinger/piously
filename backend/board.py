@@ -249,6 +249,38 @@ class Board(object):
             })
         self.screen.make_map(hex_maps)
 
+    def return_hex_data(self):
+        hex_maps = []
+        for room in self.rooms:
+            for hex in room.hexes:
+                if isinstance(hex.occupant, Player):
+                    color = hex.occupant.faction
+                elif isinstance(hex.occupant, Artwork):
+                    color = hex.occupant.color
+                else:
+                    color = None
+
+                hex_maps.append({
+                    'x': int(hex.location.flat[0]),
+                    'y': int(hex.location.flat[1]),
+                    'room': hex.room.name,
+                    'obj_color': color,
+                    'aura_color': hex.aura,
+                })
+        return hex_maps
+
+    def return_spell_data(self):
+        data = []
+        for spell in self.spells:
+            data.append({
+                'name': spell.name,
+                'description': spell.description,
+                'faction': spell.faction,
+                'tapped': spell.tapped,
+                'artwork': bool(spell.artwork and not spell.artwork.hex)
+            })
+        return data
+
     def flush_spell_data(self):
         data = []
         for spell in self.spells:
@@ -271,6 +303,17 @@ class Board(object):
                     'faction': player.faction,
                 })
         self.screen.player_data = data
+
+    def return_player_data(self):
+        data = []
+        for player in self.players.values():
+            if player.hex:
+                data.append({
+                    'x': int(player.hex.location.flat[0]),
+                    'y': int(player.hex.location.flat[1]),
+                    'faction': player.faction,
+                })
+        return data
 
     def flush_artwork_data(self):
         data = []

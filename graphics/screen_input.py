@@ -1,8 +1,8 @@
 """
-User input helper functions. Currently they all rely on keypresses, but eventaully they will be based on clicks on the UI.
-Some of them are just to make testing easier
+User input helper functions for pygame frontend.
 """
 from backend.location import location_to_axial
+from backend.errors import InvalidMove
 
 def get_keypress(screen):
     screen.key = None
@@ -36,9 +36,9 @@ def choose_move(screen):
 Params: list of objects
 Returns: chosen object
 '''
-def choose_from_list(screen, ls, prompt_text='Choose one:'):
+def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid choices', all_spells=None):
     if len(ls) == 0:
-        return None
+        raise InvalidMove(error_text)
     elif len(ls) == 1:
         return ls[0]
 
@@ -68,9 +68,9 @@ Params:
 
 Returns: index of the chosen location
 """
-def choose_location(screen, axial_pos, prompt_text="Click a location"):
+def choose_location(screen, axial_pos, prompt_text="Click a location", error_text="No valid locations"):
     if len(axial_pos) == 0:
-        return None
+        raise InvalidMove(error_text)
     elif len(axial_pos) == 1:
         return 0
 

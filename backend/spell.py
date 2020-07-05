@@ -9,11 +9,15 @@ from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.room import Room
 from graphics.screen_input import choose_from_list, choose_hexes, get_keypress
+# from graphics.js_input import choose_from_list, choose_hexes
 from copy import deepcopy
 
 import backend.location as location
 import numpy as np
 
+# TODO: make spells work with js_input
+#  - search for WARNING
+#  - check for + handle spells that need the same choose_ more than once
 class Spell(object):
     def __init__(self):
         # name, description, color, and artwork are filled in by child constructors
@@ -87,13 +91,15 @@ class Priestess(Spell):
         target_hex = choose_hexes(
             board.screen,
             adjacent_linked_hexes,
-            prompt_text = 'Click hex to grow linked region'
+            prompt_text = 'Click hex to grow linked region',
+            error_text = 'There are no hexes which the Priestess may bless',
         )
         if not target_hex:
-            raise InvalidMove('There are no hexes which the Priestess may bless')
+            return False
 
         target_hex.aura = board.faction
         self._toggle_tapped()
+        return True
 
 class Purify(Spell):
     def __init__(self):
@@ -112,12 +118,14 @@ class Purify(Spell):
             board.screen,
             purifiable_hexes,
             prompt_text = 'Click hex to bless',
+            error_text = 'No hexes to Purify',
         )
         if not hex:
-            raise InvalidMove('No hexes to Purify')
+            return False
 
         hex.aura = board.faction
         self._toggle_tapped()
+        return True
 
 class Imposter(Spell):
     def __init__(self, artwork):
@@ -127,6 +135,7 @@ class Imposter(Spell):
         self.description = 'Copy auras from Imposter\'s room to linked room'
         self.artwork = artwork
 
+    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get a linked room.
@@ -140,6 +149,7 @@ class Imposter(Spell):
         # TODO: handle if you are copying more than one aura onto the Shovel
         place_auras_on_hexes(board, aura_list, target_room.hexes)
         self._toggle_tapped()
+        return True
 
 class Imprint(Spell):
     def __init__(self):
@@ -172,6 +182,7 @@ class Imprint(Spell):
             if opposing_neighboring_auras[i] != 'Skip' and current_player_neighborhood[i]:
                 current_player_neighborhood[i].aura = opposing_neighboring_auras[i]
         self._toggle_tapped()
+        return True
 
 class Opportunist(Spell):
     def __init__(self, artwork):
@@ -192,13 +203,15 @@ class Opportunist(Spell):
         spell = choose_from_list(
             board.screen,
             eligible_spells,
-            prompt_text='Choose spell to untap:'
+            prompt_text = 'Choose spell to untap:',
+            error_text = 'There are no linked untapped spells',
         )
         if not spell:
-            raise InvalidMove('There are no linked untapped spells')
+            return False
 
         spell.tapped = False
         self._toggle_tapped()
+        return True
 
 class Overwork(Spell):
     def __init__(self):
@@ -212,6 +225,7 @@ class Overwork(Spell):
         adj_hexes = location.find_adjacent_hexes(board, board.get_current_player().hex)
         board.actions += len([x for x in adj_hexes if x.occupant])
         self._toggle_tapped()
+        return True
 
 class Usurper(Spell):
     def __init__(self, artwork):
@@ -221,6 +235,7 @@ class Usurper(Spell):
         self.description = 'Shrink region twice, then grow twice'
         self.artwork = artwork
 
+    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         self._toggle_tapped()
@@ -245,6 +260,7 @@ class Usurper(Spell):
             )
             hex_to_change.aura = board.faction
             board.flush_aura_data()
+        return True
 
 class Upset(Spell):
     def __init__(self):
@@ -253,6 +269,7 @@ class Upset(Spell):
         self.color = 'Umber'
         self.description = 'Rearrange auras under & around self'
 
+    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get neighborhood of 7 hexes and their auras
@@ -263,15 +280,17 @@ class Upset(Spell):
         # rearrange auras in neighborhood
         place_auras_on_hexes(board, aura_list, neighborhood)
         self._toggle_tapped()
+        return True
 
 class Stonemason(Spell):
+    # [WARNING] make work with js
     def __init__(self, artwork):
         super(Stonemason, self).__init__() # initializes faction and tapped
         self.name = 'Stonemason'
         self.color = 'Sapphire'
         self.description = 'Move linked room anywhere'
         self.artwork = artwork
-    
+
     def cast(self, board):
         self._validate_artwork_status(board)
         moving_room = choose_from_list(
@@ -281,7 +300,7 @@ class Stonemason(Spell):
         )
         board.screen.info.text = "Arrow keys move Room {}. \',\' and \'.\' rotate. Enter to finish.".format(moving_room)
         finished_with_stonemason = False
-        
+
         while not(finished_with_stonemason):
             key = get_keypress(board.screen)
             if key == "return":
@@ -301,7 +320,7 @@ class Stonemason(Spell):
             board.flush_gamepieces()
         board.screen.info.error = ""
         self._toggle_tapped()
-        
+
 
 class Shovel(Spell):
     def __init__(self):
@@ -316,6 +335,7 @@ class Shovel(Spell):
             None, None
             )
 
+    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
 
@@ -326,10 +346,10 @@ class Shovel(Spell):
             player_on_shovel = (board.rooms[shovel_index].hexes[0].occupant == board.get_current_player())
         if shovel_is_placed and player_on_shovel:
             # time to move the shovel!
-            
+
             # get a list of all possible Shovel locations
             # if the player is not on the shovel,
-            new_hex_locations = location.find_unoccupied_neighbors(board, board.get_all_hexes())  
+            new_hex_locations = location.find_unoccupied_neighbors(board, board.get_all_hexes())
         else:
             # make temporary room with hexes adjacent to current player
             player_hex = board.get_current_player().hex
@@ -337,7 +357,7 @@ class Shovel(Spell):
             # make room with hexes at new_hex_locations, and choose from them
             if new_hex_locations == []:
                 raise InvalidMove("There's nowhere to place the Shovel")
-     
+
         # make a temporary room with these locations.
         board.rooms.append(Room("Temp",
             None,
@@ -358,6 +378,7 @@ class Shovel(Spell):
             board.rooms[shovel_index].hexes[0].location = shovel_location
         board.flush_hex_data()
         self._toggle_tapped()
+        return True
 
 class Locksmith(Spell):
     def __init__(self, artwork):
@@ -367,6 +388,7 @@ class Locksmith(Spell):
         self.description = 'Move linked object anywhere'
         self.artwork = artwork
 
+    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get list of linked objects
@@ -392,6 +414,7 @@ class Locksmith(Spell):
         )
         board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
         self._toggle_tapped()
+        return True
 
 class Leap(Spell):
     def __init__(self):
@@ -415,13 +438,15 @@ class Leap(Spell):
             board.screen,
             leapable_objects,
             'Choose an object to Leap with:',
+            'There\'s no object to Leap with',
         )
         if not target_object:
-            raise InvalidMove('There\'s no object to Leap with')
+            return False
 
         board.swap_object(current_player, target_object)
         # TODO: test
         self._toggle_tapped()
+        return True
 
 class Yeoman(Spell):
     def __init__(self, artwork):
@@ -433,6 +458,7 @@ class Yeoman(Spell):
 
     # TODO: redo so that partial placements may be flushed to the board
     def cast(self,board,str=[]):
+        # [WARNING] make work with js
         self._validate_artwork_status(board)
         # get linked rooms
         populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
@@ -457,7 +483,7 @@ class Yeoman(Spell):
                     target_hex_index = choose_hexes(
                         board.screen,
                         [location.find_hex(board,loc) for loc in unoccupied_locations],
-                        prompt_text="Click a hex to place {}".format(hex.occupant),
+                        prompt_text = "Click a hex to place {}".format(hex.occupant),
                         return_index = True
                     )
                     # keep track of the new location for the object
@@ -470,7 +496,7 @@ class Yeoman(Spell):
                 target_hex.occupant = object_to_place
                 object_to_place.hex = target_hex
         self._toggle_tapped()
-
+        return True
 
 class Yoke(Spell):
     def __init__(self):
@@ -488,10 +514,11 @@ class Yoke(Spell):
             board.screen,
             board.get_placed_non_player_objects(),
             'Pick an object to Yoke with:',
+            'There is no other object to Yoke',
         )
         if not target_object:
             # you shouldn't be here: there should always be at least two objects
-            raise InvalidMove('There was no other object to Yoke')
+            return False
 
         # get directions for yolking
         # elements are: (player_destination, target_destination)
@@ -511,10 +538,11 @@ class Yoke(Spell):
         player_direction = choose_hexes(
             board.screen,
             [x[0] for x in possible_location_data],
-            prompt_text="Choose the destination of the player:"
+            prompt_text = "Choose the destination of the player:",
+            error_text = 'These two objects have no common direction to move',
         )
         if player_direction == None:
-            raise InvalidMove('These two objects have no common direction to move')
+            return False
         # get the directions of both player and target by finding the entry
         # whose first entry is the player
         movement_data = [x for x in possible_location_data if x[0] == player_direction][0]
@@ -526,6 +554,7 @@ class Yoke(Spell):
         current_player.hex.occupant = current_player
         target_object.hex.occupant = target_object
         self._toggle_tapped()
+        return True
 
 """
 Helper method to place auras on hexes, used in Imposter and Upset.

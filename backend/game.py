@@ -6,17 +6,59 @@ from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.location import find_adjacent_hexes, location_to_axial, linked_rooms
 from graphics.screen import PiouslyApp
-import graphics.screen_input as screen_input
+import graphics.screen_input as pygame_input
+import graphics.js_input as js_input
 import copy
 
 # TODO:
 # - cancel options - ex. when choosing spell to cast
 
+class MockTextbox(object):
+    def __init__(self):
+        self.text = ''
+        self.error = ''
+
+class MockScreen(object):
+    def __init__(self):
+        self.info = MockTextbox()
+        self.board_state = MockTextbox()
+
+        self.player_data = []
+        self.hex_data = []
+        self.artwork_data = []
+        self.aura_data = []
+
+        # used for pygame mode
+        self.key = None
+        self.click_hex = None
+
+        # TODO used for js mode?
+        self.data = None
+        self.action_buttons_on = True
+
+    def loop_once(self):
+        pass
+
+    def make_map(self, data):
+        pass
+
+    def make_spells(self, data):
+        pass
+
+    def toggle_action_buttons(self):
+        pass
+
 class Game(object):
     def __init__(self, start_faction):
-        self.screen = PiouslyApp()
+        # choose pygame vs js frontend
+        # IMPORTANT: if you update, also update imports in spell.py
+        self.mode = 'pygame' # 'js' or 'pygame'
+        self.screen_input = pygame_input # js_input or pygame_input
+
+        self.screen = MockScreen() if self.mode == 'js' else PiouslyApp()
         self.old_board = Board(self.screen, start_faction)
         self.current_board = copy.deepcopy(self.old_board)
+        self.game_over = False
 
     def __str__(self):
         return str(self.current_board)
@@ -49,14 +91,21 @@ class Game(object):
         adj_hexes_wo_objs = [h for h in adj_hexes if h.occupant == None]
 
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
-        hex_idx = screen_input.choose_location(self.screen, coords, 'Click hex to move to')
+        hex_idx = self.screen_input.choose_location(
+            self.screen,
+            coords,
+            'Click hex to move to',
+            'There is no adjacent hex for you to move',
+        )
+
         if hex_idx == None:
-            raise InvalidMove('There is no adjacent hex for you to move')
+            return False
 
         hex = adj_hexes_wo_objs[hex_idx]
 
         self.current_board.actions -= 1
         self.current_board.move_object(player, from_hex=player.hex, to_hex=hex)
+        return True
 
     def bless(self):
         player = self.get_current_player()
@@ -78,6 +127,7 @@ class Game(object):
                 ))
             self.current_board.actions -= 2
             player.hex.aura = self.current_board.faction
+        return True
 
     def drop(self):
         if self.current_board.actions < 1:
@@ -101,18 +151,29 @@ class Game(object):
 
         # prompt for hex choice if needed
         coords = [location_to_axial(hex.location) for hex in adj_hexes_wo_objs]
-        hex_idx = screen_input.choose_location(self.screen, coords, 'Click where to drop')
+        hex_idx = self.screen_input.choose_location(
+            self.screen,
+            coords,
+            'Click where to drop',
+            'There is no adjacent hex where you can drop',
+        )
         if hex_idx == None:
-            raise InvalidMove('There is no adjacent hex where you can drop')
+            return False
         hex = adj_hexes_wo_objs[hex_idx]
 
         # prompt for artwork choice if needed
-        artwork = screen_input.choose_from_list(self.screen, eligible_artworks, 'Choose artwork to drop:')
+        artwork = self.screen_input.choose_from_list(
+            self.screen,
+            eligible_artworks,
+            'Choose artwork to drop:',
+            '{} does not have any unplaced artworks'.format(faction)
+        )
         if not artwork:
-            raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
+            return False
 
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, to_hex=hex)
+        return True
 
     def pick_up(self):
         if self.current_board.actions < 1:
@@ -132,14 +193,20 @@ class Game(object):
                 coords.append(location_to_axial(artwork.hex.location))
 
         # prompt for artwork choice if needed
-        artwork_idx = screen_input.choose_location(self.screen, coords, 'Click artwork to pick up')
+        artwork_idx = self.screen_input.choose_location(
+            self.screen,
+            coords,
+            'Click artwork to pick up',
+            '{} does not have any adjacent artworks to pick up'.format(faction),
+        )
         if artwork_idx == None:
-            raise InvalidMove('{} does not have any adjacent artworks to pick up'.format(faction))
+            return False
 
         artwork = eligible_artworks[artwork_idx]
 
         self.current_board.actions -= 1
         self.current_board.move_object(artwork, from_hex=artwork.hex)
+        return True
 
     def cast_spell(self):
         faction = self.current_board.faction
@@ -148,35 +215,52 @@ class Game(object):
             if spell.faction == faction:
                 if not spell.tapped:
                     eligible_spells.append(spell)
-        spell = screen_input.choose_from_list(self.screen, eligible_spells, 'Choose spell to cast:')
+
+        spell = self.screen_input.choose_from_list(
+            self.screen,
+            eligible_spells,
+            'Choose spell to cast:', # TODO: maybe use 'Click on a spell to cast'
+            '{} does not have untapped spells'.format(faction),
+            all_spells = self.current_board.spells)
         if not spell:
-            raise InvalidMove('{} does not have untapped spells'.format(faction))
-        spell.cast(self.current_board)
+            return False
+
+        return spell.cast(self.current_board)
 
     def reset_turn(self):
         self.current_board = copy.deepcopy(self.old_board)
 
+    # TODO: bug where have to press twice to claim it?
     def maybe_claim_spell(self):
         a_spell = self.get_current_player().hex.room.artwork
         if a_spell.faction == None:
             b_spell = self.get_current_player().hex.room.bewitchment
 
-            spells = [a_spell, b_spell, None]
-            chosen_spell = screen_input.choose_from_list(self.screen, spells, 'Choose spell to claim:')
+            spells = [a_spell, b_spell, 'Neither']
+            chosen_spell = self.screen_input.choose_from_list(
+                self.screen,
+                spells,
+                'Choose spell to claim:'
+            )
 
-            if chosen_spell != None:
+            if chosen_spell == None:
+                return False
+
+            print('chosen spell {}'.format(chosen_spell))
+            if chosen_spell != 'Neither':
                 a_spell.faction = other_faction(self.current_board.faction)
                 b_spell.faction = other_faction(self.current_board.faction)
                 chosen_spell.faction = self.current_board.faction
                 a_spell.artwork.faction = a_spell.faction
 
+        return True
+
     def end_turn(self):
         if self.current_board.actions < 0:
             raise InvalidMove('You cannot end turn with negative actions, please reset turn and try again')
-        self.maybe_claim_spell()
-
-        self.current_board.end_turn()
-        self.old_board = copy.deepcopy(self.current_board)
+        if self.maybe_claim_spell():
+            self.current_board.end_turn()
+            self.old_board = copy.deepcopy(self.current_board)
 
     def sync_boards(self):
         self.old_board = copy.deepcopy(self.current_board)
@@ -243,7 +327,7 @@ class Game(object):
         # enter main game loop
         while not self.is_game_over():
             self.current_board.flush_gamepieces()
-            move_type = screen_input.choose_move(self.screen)
+            move_type = self.screen_input.choose_move(self.screen)
             self.screen.info.error = None
             try:
                 if move_type == 'move':
@@ -261,7 +345,7 @@ class Game(object):
                 elif move_type == 'reset turn':
                     self.reset_turn()
                 elif move_type == 'end game':
-                    confirmation = screen_input.choose_from_list(
+                    confirmation = self.screen_input.choose_from_list(
                         self.screen,
                         ['Yes', 'No'],
                         'Are you sure you want to forfeit and quit?'
@@ -270,7 +354,12 @@ class Game(object):
                         break
             except InvalidMove as move:
                 self.screen.info.error = '{} '.format(move)
+        self.end_game()
+        self.screen.info.error = "Click on any hex to exit"
+        self.screen_input.get_click(self.screen)
 
+    def end_game(self):
+        self.game_over = True
         winning_faction = self.is_game_over()
         if winning_faction:
             self.screen.info.text = "WINNER: {}".format(winning_faction)
@@ -278,8 +367,73 @@ class Game(object):
             current_faction = self.current_board.faction
             self.screen.info.text = '{} forefits, {} wins!'.format(current_faction, other_faction(current_faction))
 
-        self.screen.info.error = "Click on any hex to exit"
-        screen_input.get_click(self.screen)
+    # TODO: clean this up
+    def do_action(self, data):
+        if self.is_game_over():
+            self.end_game()
+        else:
+            self.screen.data = data
+            move_type = data['current_action']
+            self.screen.info.error = None
+            done = False
+
+            try:
+                if move_type == 'move':
+                    done = self.move()
+                    verb = 'Done moving'
+                elif move_type == 'bless':
+                    done = self.bless()
+                    verb = 'Done blessing'
+                elif move_type == 'drop':
+                    done = self.drop()
+                    verb = 'Done dropping'
+                elif move_type == 'pick up':
+                    done = self.pick_up()
+                    verb = 'Done picking up'
+                elif move_type == 'cast spell':
+                    done = self.cast_spell()
+                    verb = 'Done casting'
+                elif move_type == 'end turn':
+                    done = self.end_turn()
+                    verb = 'Turn ended'
+
+                    # should not be necessary, but helpful until bugs in
+                    # action_buttons_on are worked out
+                    self.screen.action_buttons_on = True
+                elif move_type == 'reset turn':
+                    done = self.reset_turn()
+                    verb = 'Turn reset'
+                elif move_type == 'end game':
+                    # TODO: get confirmation
+                    done = self.end_game()
+                    verb = 'Game over'
+                elif move_type == 'none':
+                    self.screen.info.text = 'Welcome to Piously! Select an option (click button or use keybinding) to begin playing.'
+                    self.screen.info.error = 'Implementation in progress'
+                # TODO: add place player, place board
+
+                print('move:{} done:{} buttons_on:{}'.format(move_type, done, self.screen.action_buttons_on))
+                if self.screen.action_buttons_on and move_type != 'none':
+                    self.screen.info.text = '{}Select an option (click button or use keybinding)'.format(
+                        '{}. '.format(verb) if done else ''
+                    )
+
+            except InvalidMove as move:
+                self.screen.info.error = '{} '.format(move)
+
+        print('setting state')
+        state = {
+            'info': self.screen.info.text,
+            'error': self.screen.info.error,
+            'action_buttons_on': self.screen.action_buttons_on,
+            'current_player': self.current_board.faction,
+            'actions': self.current_board.actions,
+            'hexes': self.current_board.return_hex_data(),
+            'players': self.current_board.return_player_data(),
+            'spells': self.current_board.return_spell_data(),
+            'game_over': self.game_over,
+        }
+        return state
 
 
 if __name__ == "__main__":
