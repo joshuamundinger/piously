@@ -182,26 +182,62 @@ class Game(object):
         self.old_board = copy.deepcopy(self.current_board)
 
     def place_rooms(self):
-        print('choosing room postitons is not implented yet... initializing positions')
-        pass
+        self.current_board.screen.board_state.text = "Light's turn"
+        self.current_board.screen.board_state.error = "Placing board"
+        setting_up_board = True
+        current_room_index = 0
+        current_room = self.current_board.rooms[current_room_index]
+        self.current_board.screen.info.text = "Moving room {}".format(current_room.name)
+        self.current_board.screen.info.error = "Arrow keys to move, , . rotate. L to toggle. Enter to end."
+        while setting_up_board:
+            self.current_board.flush_hex_data()
+            key = screen_input.get_keypress(self.current_board.screen)
+            if key == "l":
+                if self.current_board.check_for_collisions(current_room):
+                    self.current_board.screen.info.text = "Moving room {}. Avoid collisions.".format(current_room.name)
+                else:
+                    current_room_index = ((current_room_index + 1) % 7) 
+                    current_room = self.current_board.rooms[current_room_index]
+                    self.current_board.screen.info.text = "Moving room {}".format(current_room.name)
+            elif key == "return":
+                # check to see if board satisfies connectivity rules
+                if self.current_board.check_for_collisions(current_room):
+                    self.current_board.screen.info.text = "Moving room {}. Avoid collisions.".format(current_room)
+                else:
+                    setting_up_board = not(self.current_board.connectivity_test())
+                    if setting_up_board:
+                        self.current_board.screen.info.text = "Board not connected."
+            else:
+                current_room.keyboard_movement(key)
+        self.current_board.screen.board_state.error = ""
 
     def place_players(self):
-        print('choosing player starting postiton is not implented yet... initializing positions')
-
         light_player = self.current_board.players['Light']
         dark_player = self.current_board.players['Dark']
-        hex1 = self.current_board.rooms[0].hexes[0]
-        hex2 = self.current_board.rooms[0].hexes[1]
-
-        self.current_board.move_object(light_player, to_hex=hex1)
+        player_spots = self.current_board.get_all_hexes()
+        self.current_board.screen.board_state.text = "Dark's turn"
+        hex2 = screen_input.choose_hexes(
+            self.current_board.screen,
+            player_spots,
+            prompt_text = "Place the Dark player"
+        )
         self.current_board.move_object(dark_player, to_hex=hex2)
+        self.current_board.flush_player_data()
+        player_spots.remove(hex2)
+        self.current_board.screen.board_state.text = "Light's turn"
+        hex1 = screen_input.choose_hexes(
+            self.current_board.screen,
+            player_spots,
+            prompt_text = "Place the Light player"
+        )
+        self.current_board.move_object(light_player, to_hex=hex1)
+        self.current_board.flush_player_data()
+        
 
     def play(self):
         # set up board
         self.place_rooms()
-        self.current_board.flush_hex_data()
         self.place_players()
-        self.current_board.flush_player_data()
         self.sync_boards() # needed so that restart_turn works correctly on the first turn
 
         # enter main game loop
@@ -228,7 +264,7 @@ class Game(object):
                     confirmation = screen_input.choose_from_list(
                         self.screen,
                         ['Yes', 'No'],
-                        'Are you sure you want to forefit and end the game?'
+                        'Are you sure you want to forfeit and quit?'
                     )
                     if confirmation == 'Yes':
                         break

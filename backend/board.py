@@ -15,7 +15,7 @@ import numpy as np
 from backend.artwork import Artwork
 from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
-from backend.location import neighboring_region
+from backend.location import neighboring_region, find_adjacent_rooms, hexes_colocated
 from backend.player import Player
 from backend.room import Room
 from backend.spell import (
@@ -73,53 +73,53 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = rooms or [
-            Room('P', np.matrix([1,2,-3]),
-                [   np.matrix([1,0,-1]),
-                    np.matrix([0,1,-1]),
-                    np.matrix([0,-1,1])
+            Room('P', np.matrix([5,-5,0]),
+                [   np.matrix([-1,0,1]),
+                    np.matrix([-1,1,0]),
+                    np.matrix([1,0,-1])
                 ], self.spells[0], self.spells[1]
             ),
-            Room('I', np.matrix([2,-2,0]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([0,2,-2]),
-                    np.matrix([0,3,-3])
+            Room('I', np.matrix([3,-3,0]),
+                [   np.matrix([1,0,-1]),
+                    np.matrix([2,0,-2]),
+                    np.matrix([3,0,-3])
                 ], self.spells[2], self.spells[3]
             ),
-            Room('O', np.matrix([3,-1,-2]),
+            Room('O', np.matrix([2,0,-2]),
                 [   np.matrix([0,-1,1]),
                     np.matrix([1,-1,0]),
                     np.matrix([1,-2,1])
                 ],  self.spells[4], self.spells[5]
             ),
-            Room('U', np.matrix([3,0,-3]),
-                [   np.matrix([0,1,-1]),
+            Room('U', np.matrix([4,-2,-2]),
+                [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
-                    np.matrix([2,0,-2])
+                    np.matrix([0,2,-2])
                 ],  self.spells[6],self.spells[7]
             ),
-            Room('S', np.matrix([6,-3,-3]),
+            Room('S', np.matrix([2,1,-3]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
                     np.matrix([2,1,-3])
                 ],  self.spells[8], self.spells[9]
             ),
-            Room('L', np.matrix([5,-3,-2]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([0,2,-2]),
-                    np.matrix([-1,3,-2])
+            Room('L', np.matrix([0,2,-2]),
+                [   np.matrix([1,0,-1]),
+                    np.matrix([2,0,-2]),
+                    np.matrix([2,1,-3])
                 ], self.spells[10], self.spells[11]
             ),
-            Room('Y', np.matrix([7,0,-7]),
-                [   np.matrix([0,1,-1]),
-                    np.matrix([1,-1,0]),
-                    np.matrix([-1,0,1])
+            Room('Y', np.matrix([1,4,-5]),
+                [   np.matrix([0,-1,1]),
+                    np.matrix([-1,1,0]),
+                    np.matrix([1,0,-1])
                 ], self.spells[12], self.spells[13]
             )
         ]
 
     def __str__(self):
         return '\n***BOARD***\n{overview}\nplayers:{players}\nartworks:{artworks}\n'.format(
-            overview = get_state_msg(),
+            overview = self.get_state_msg(),
             players = display_list(self.players.values()),
             artworks = display_list(self.artworks),
         )
@@ -178,6 +178,30 @@ class Board(object):
                 neighboring_rooms.append(current_room)
         return neighboring_rooms
 
+    def connectivity_test(self):
+        connectivity = True
+        piously = ['P','I','O','U','S','L','Y']
+        piously_rooms = [room for room in self.rooms if room.name in piously]
+        for current_room in piously_rooms:
+            piously_neighbors = [ room for room in find_adjacent_rooms(self,current_room) if room.name in piously]
+            if len(piously_neighbors) < 2:
+                connectivity = False
+        # TODO: check board is connected
+        return connectivity
+    
+    #returns whether room collides with another room in the board
+    def check_for_collisions(self, room):
+        all_hexes = self.get_all_hexes()
+        for moving_hex in room.hexes:
+            counter = 0
+            for hex in all_hexes:
+                if hexes_colocated(moving_hex, hex):
+                    counter += 1
+            if counter > 1:
+                return True
+        return False
+
+
     ############################
     # dynamic gameplay methods #
     ############################
@@ -205,19 +229,24 @@ class Board(object):
         object2.hex.occupant = object2
         object1.hex.occupant = object1
 
+    def get_all_hexes(self):
+            # returns a list of all hexes
+            hex_list = []
+            for room in self.rooms:
+                hex_list += room.hexes
+            return hex_list
     ##############################
     # flush display data methods #
     ##############################
 
     def flush_hex_data(self):
         hex_maps = []
-        for room in self.rooms:
-            for hex in room.hexes:
-                hex_maps.append({
-                    'x': hex.location.flat[0],
-                    'y': hex.location.flat[1],
-                    'room': hex.room.name,
-                })
+        for hex in self.get_all_hexes():
+            hex_maps.append({
+                'x': hex.location.flat[0],
+                'y': hex.location.flat[1],
+                'room': hex.room.name,
+            })
         self.screen.make_map(hex_maps)
 
     def flush_spell_data(self):
@@ -256,14 +285,13 @@ class Board(object):
 
     def flush_aura_data(self):
         data = []
-        for room in self.rooms:
-            for hex in room.hexes:
-                if hex.aura:
-                    data.append({
-                        'x': hex.location.flat[0],
-                        'y': hex.location.flat[1],
-                        'faction': hex.aura,
-                    })
+        for hex in self.get_all_hexes():
+            if hex.aura:
+                data.append({
+                    'x': hex.location.flat[0],
+                    'y': hex.location.flat[1],
+                    'faction': hex.aura,
+                })
         self.screen.aura_data = data
 
     def flush_gamepieces(self):

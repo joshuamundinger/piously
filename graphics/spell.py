@@ -96,7 +96,7 @@ class Spell(object):
         # cross out tapped spells
         if self.tapped:
             h2 = int(self.rect.height/2)
-            pg.draw.line(self.surface, BLACK, (0, h2), (self.rect.width, h2), 1.5)
+            pg.draw.line(self.surface, BLACK, (0, h2), (self.rect.width, h2), 1)
 
         # faction
         if self.faction:
