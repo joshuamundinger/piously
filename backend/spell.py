@@ -8,16 +8,13 @@ and may have a pointer to an associated artwork.
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
 from backend.room import Room
-from graphics.screen_input import choose_from_list, choose_hexes, get_keypress
-# from graphics.js_input import choose_from_list, choose_hexes
+# from graphics.pygame_input import choose_from_list, choose_hexes, get_keypress
+from graphics.js_input import choose_from_list, choose_hexes, get_keypress
 from copy import deepcopy
 
 import backend.location as location
 import numpy as np
 
-# TODO: make spells work with js_input
-#  - search for WARNING
-#  - check for + handle spells that need the same choose_ more than once
 class Spell(object):
     def __init__(self):
         # name, description, color, and artwork are filled in by child constructors
@@ -135,21 +132,24 @@ class Imposter(Spell):
         self.description = 'Copy auras from Imposter\'s room to linked room'
         self.artwork = artwork
 
-    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get a linked room.
-        target_room = choose_from_list(
+        target_room = board.screen.choice(1) or choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
             prompt_text = 'Choose room to copy to:',
         )
+        if target_room == None:
+            return False
         # get list of auras in artwork's room
         aura_list = [hex.aura for hex in self.artwork.hex.room.hexes if hex.aura]
         # TODO: handle if you are copying more than one aura onto the Shovel
-        place_auras_on_hexes(board, aura_list, target_room.hexes)
-        self._toggle_tapped()
-        return True
+        print('about to place')
+        if place_auras_on_hexes(board, aura_list, target_room.hexes, 2):
+            self._toggle_tapped()
+            return True
+        return False
 
 class Imprint(Spell):
     def __init__(self):
@@ -205,6 +205,7 @@ class Opportunist(Spell):
             eligible_spells,
             prompt_text = 'Choose spell to untap:',
             error_text = 'There are no linked untapped spells',
+            all_spells = board.spells,
         )
         if not spell:
             return False
@@ -235,29 +236,32 @@ class Usurper(Spell):
         self.description = 'Shrink region twice, then grow twice'
         self.artwork = artwork
 
-    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         self._toggle_tapped()
         # pick two linked hexes to flip
         for i in range(2):
-            hex_to_flip = choose_hexes(
+            hex_to_flip = board.screen.choice(1 + i) or choose_hexes(
                 board.screen,
                 location.linked_hexes(board, self.artwork.hex),
                 prompt_text = 'Click a {} aura to flip'.format(self.faction),
             )
+            if hex_to_flip == None:
+                return False
             hex_to_flip.aura = other_faction(hex_to_flip.aura)
             board.flush_aura_data()
             # check to see if we flipped under the artwork/
             # if so, stop Usurping
             if self.artwork.hex.aura != board.faction:
-                return None
+                return True
         for i in range(2):
-            hex_to_change = choose_hexes(
+            hex_to_change = board.screen.choice(3 + i) or choose_hexes(
                 board.screen,
                 location.adjacent_linked_region(board, self.artwork.hex),
                 prompt_text = 'Click a hex on which to grow',
             )
+            if hex_to_change == None:
+                return False
             hex_to_change.aura = board.faction
             board.flush_aura_data()
         return True
@@ -269,7 +273,6 @@ class Upset(Spell):
         self.color = 'Umber'
         self.description = 'Rearrange auras under & around self'
 
-    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get neighborhood of 7 hexes and their auras
@@ -278,12 +281,12 @@ class Upset(Spell):
         # get auras on neighborhood
         aura_list = [x.aura for x in neighborhood if x.aura]
         # rearrange auras in neighborhood
-        place_auras_on_hexes(board, aura_list, neighborhood)
-        self._toggle_tapped()
-        return True
+        if place_auras_on_hexes(board, aura_list, neighborhood, 1):
+            self._toggle_tapped()
+            return True
+        return False
 
 class Stonemason(Spell):
-    # [WARNING] make work with js
     def __init__(self, artwork):
         super(Stonemason, self).__init__() # initializes faction and tapped
         self.name = 'Stonemason'
@@ -293,20 +296,26 @@ class Stonemason(Spell):
 
     def cast(self, board):
         self._validate_artwork_status(board)
-        moving_room = choose_from_list(
+
+        moving_room = board.screen.choice(1) or choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
             prompt_text="Choose a linked room to move:"
         )
+        if moving_room == None:
+            return False
+
         board.screen.info.text = "Arrow keys move Room {}. \',\' and \'.\' rotate. Enter to finish.".format(moving_room)
         finished_with_stonemason = False
 
         while not(finished_with_stonemason):
             key = get_keypress(board.screen)
-            if key == "return":
-                #check to see if no hexes overlap
+            if key == None:
+                return False
+            elif key == "return":
+                # check to see if no hexes overlap
                 finished_with_stonemason = True
-                #check moving_room for collisions
+                # check moving_room for collisions
                 if board.check_for_collisions(moving_room):
                     finished_with_stonemason = False
                     board.screen.info.error = "Overlaps are death."
@@ -318,9 +327,17 @@ class Stonemason(Spell):
                 moving_room.keyboard_movement(key)
             board.flush_hex_data()
             board.flush_gamepieces()
+
+            # For js need to get rid of the old keypress, pygame will give AttributeError
+            try:
+                if 'current_keypress' in board.screen.data:
+                    board.screen.data.pop('current_keypress')
+            except AttributeError:
+                pass
+
         board.screen.info.error = ""
         self._toggle_tapped()
-
+        return True
 
 class Shovel(Spell):
     def __init__(self):
@@ -333,9 +350,8 @@ class Shovel(Spell):
         return Room("Shovel",
             location, [],
             None, None
-            )
+        )
 
-    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
 
@@ -358,19 +374,28 @@ class Shovel(Spell):
             if new_hex_locations == []:
                 raise InvalidMove("There's nowhere to place the Shovel")
 
-        # make a temporary room with these locations.
-        board.rooms.append(Room("Temp",
-            None,
-            new_hex_locations,None,None,relative_shape=False)
-        )
-        # get the (possibly first-ever) location for the Shoel
+        # make a temporary room with these locations if it has not already been done
+        if len(board.rooms) == (8 if shovel_is_placed else 7):
+            board.rooms.append(Room(
+                name = "Temp",
+                root = None,
+                shape = new_hex_locations,
+                a_spell = None,
+                b_spell = None,
+                relative_shape = False,
+            ))
+        # get the (possibly first-ever) location for the Shovel
         board.flush_hex_data()
-        shovel_location = choose_hexes(
+        shovel_hex = choose_hexes(
             board.screen,
             board.rooms[-1].hexes,
             prompt_text = "Choose where the Shovel will go"
-        ).location
-        #get rid of the temporary room
+        )
+        if shovel_hex == None:
+            return False
+        shovel_location = shovel_hex.location
+
+        # get rid of the temporary room
         board.rooms.pop()
         if not(shovel_is_placed):
             board.rooms.append(self.create_Shovel_room(shovel_location))
@@ -388,7 +413,6 @@ class Locksmith(Spell):
         self.description = 'Move linked object anywhere'
         self.artwork = artwork
 
-    # [WARNING] make work with js
     def cast(self, board):
         self._validate_spell_status(board)
         # get list of linked objects
@@ -402,16 +426,22 @@ class Locksmith(Spell):
 
         # choose a linked object to move. There should always be at least one,
         # since we've validated that the Locksmith is on an aura
-        target_object = choose_from_list(
+        target_object = board.screen.choice(1) or choose_from_list(
             board.screen,
             linked_objects,
             prompt_text='Choose object to move:',
         )
+        if target_object == None:
+            return False
+
         target_hex = choose_hexes(
             board.screen,
             target_hexes,
             prompt_text='Click where to move {}'.format(target_object)
         )
+        if target_hex == None:
+            return False
+
         board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
         self._toggle_tapped()
         return True
@@ -457,8 +487,8 @@ class Yeoman(Spell):
         self.artwork = artwork
 
     # TODO: redo so that partial placements may be flushed to the board
-    def cast(self,board,str=[]):
-        # [WARNING] make work with js
+    def cast(self, board, str=[]):
+        choice_idx = 1
         self._validate_artwork_status(board)
         # get linked rooms
         populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
@@ -480,12 +510,15 @@ class Yeoman(Spell):
                 # this assignment goes into object_location_pairs
                 if hex.occupant:
                     # choose a hex not yet targeted
-                    target_hex_index = choose_hexes(
+                    target_hex_index = board.screen.choice(choice_idx) or choose_hexes(
                         board.screen,
                         [location.find_hex(board,loc) for loc in unoccupied_locations],
                         prompt_text = "Click a hex to place {}".format(hex.occupant),
                         return_index = True
                     )
+                    if target_hex_index == None:
+                        return False
+                    choice_idx += 1
                     # keep track of the new location for the object
                     object_location_pairs.append((hex.occupant, unoccupied_locations[target_hex_index]))
                     hex.occupant = None
@@ -510,14 +543,13 @@ class Yoke(Spell):
         current_player = board.get_current_player()
 
         # get target object for yoking
-        target_object = choose_from_list(
+        target_object = board.screen.choice(1) or choose_from_list(
             board.screen,
             board.get_placed_non_player_objects(),
             'Pick an object to Yoke with:',
             'There is no other object to Yoke',
         )
-        if not target_object:
-            # you shouldn't be here: there should always be at least two objects
+        if target_object == None:
             return False
 
         # get directions for yolking
@@ -567,8 +599,9 @@ Params:
     will automatically be removed
  - hex_list: list of hexes to put auras on
 """
-def place_auras_on_hexes(board, aura_list, hex_list):
+def place_auras_on_hexes(board, aura_list, hex_list, choice_idx):
     # clean the list of empty auras
+    starting_auras = [hex.aura for hex in hex_list]
     aura_list = [aura for aura in aura_list if aura]
     if len(aura_list) > len(hex_list):
         raise RuntimeError('Pidgeonhole Problem: tried to put too many auras on a set of hexes')
@@ -578,11 +611,19 @@ def place_auras_on_hexes(board, aura_list, hex_list):
         hex.aura = None
     board.flush_aura_data()
     for aura in aura_list:
-        remaining_auras.remove(aura)
-        new_hex = choose_hexes(
+        new_hex = board.screen.choice(choice_idx) or choose_hexes(
             board.screen,
             [hex for hex in hex_list if not hex.aura],
             prompt_text = "Click a hex for aura {}. Auras remaining: {}".format(aura, remaining_auras),
         )
+        if new_hex == None:
+            # put auras back how they were
+            # TODO: improve this for js screen, since reset here means it won't "flush" auras
+            for i in range(len(hex_list)):
+                hex_list[i].aura = starting_auras[i]
+            return False
+        choice_idx += 1
+        remaining_auras.remove(aura)
         new_hex.aura = aura
         board.flush_aura_data()
+    return True

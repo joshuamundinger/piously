@@ -62,7 +62,7 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
 Choose a location based on clicking a hex
 
 Params:
- - screen: a PiouslyApp() UI object
+ - screen: a PygameScreen() UI object
  - axial_pos: a list of tuples (x-coord, y-coord)
  - prompt_text: a string to display to give the user extra info
 

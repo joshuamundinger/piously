@@ -42,15 +42,6 @@ def show_board(game_id):
 
         new_board = Game("Dark")
 
-        # TODO: don't hard code placing the players
-        light_player = new_board.current_board.players['Light']
-        dark_player = new_board.current_board.players['Dark']
-        hex1 = new_board.current_board.rooms[0].hexes[0]
-        hex2 = new_board.current_board.rooms[0].hexes[1]
-        new_board.current_board.move_object(light_player, to_hex=hex1)
-        new_board.current_board.move_object(dark_player, to_hex=hex2)
-        new_board.sync_boards()
-
         GAMES[game_id] = new_board
         print('Created new game! {}'.format(new_board))
         return str(new_board)
@@ -78,20 +69,32 @@ def end_game(game_id):
 @app.route('/do_action', methods=['POST'])
 def do_action():
     data = request.json
-    game = get_game(data['game_id'])
+    game_id = data['game_id']
+    game_exists = game_id in GAMES
 
-    if game:
-        if data['current_action'] == 'end game':
-            new_state = game.do_action(data)
-            print('ending game')
-            GAMES.pop(data['game_id'])
-            # new_state = {'game_over': True}
+    if not game_exists:
+        if data['current_action'] == 'start':
+            if len(GAMES) >= MAX_GAMES:
+                # TODO: handle this
+                return {
+                    'error': 'Too many games: Please wait for another game to complete',
+                    'game_over': True,
+                }
+
+            GAMES[game_id] = Game("Dark")
         else:
-            new_state = game.do_action(data)
-    else:
-        new_state = {}
-        # TODO: error
-    return new_state
+            return {
+                'error': 'Game {} does not exist'.format(data['game_id']),
+                'game_over': True,
+            }
+
+    game = GAMES[game_id]
+    if data['current_action'] == 'start':
+        data['current_action'] = game.start_action
+    elif data['current_action'] == 'end game':
+        GAMES.pop(game_id)
+
+    return game.do_action(data)
 
 # # TODO:
 # https://flask.palletsprojects.com/en/1.1.x/patterns/apierrors/
