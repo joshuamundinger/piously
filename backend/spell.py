@@ -305,14 +305,14 @@ class Stonemason(Spell):
         if moving_room == None:
             return False
 
-        board.screen.info.text = "Arrow keys move Room {}. \',\' and \'.\' rotate. Enter to finish.".format(moving_room)
+        board.screen.info.text = "Arrow keys move Room {}. < , > and < . > rotate. Enter to finish.".format(moving_room)
         finished_with_stonemason = False
 
         while not(finished_with_stonemason):
             key = get_keypress(board.screen)
             if key == None:
                 return False
-            elif key == "return":
+            elif key == "return" or key == "Enter":
                 # check to see if no hexes overlap
                 finished_with_stonemason = True
                 # check moving_room for collisions
@@ -320,6 +320,7 @@ class Stonemason(Spell):
                     finished_with_stonemason = False
                     board.screen.info.error = "Overlaps are death."
                 # TODO: CHECK CONNECTIVITY RULES
+                #  - I was able to leave the shovel floating
                 if not board.connectivity_test():
                     board.screen.info.error = "Board fails connectivity rules."
                     finished_with_stonemason = False
@@ -355,35 +356,34 @@ class Shovel(Spell):
     def cast(self, board):
         self._validate_spell_status(board)
 
-        # check if the shovel has been placed yet
-        shovel_is_placed = any([room.name == "Shovel" for room in board.rooms])
-        if shovel_is_placed:
-            shovel_index = [index for index,room in enumerate(board.rooms) if room.name == "Shovel"][0]
-            player_on_shovel = (board.rooms[shovel_index].hexes[0].occupant == board.get_current_player())
-        if shovel_is_placed and player_on_shovel:
-            # time to move the shovel!
+        # temp room represents all the places that the shovel can be placed
+        temp_is_placed = any([room.name == "Temp" for room in board.rooms])
+        shovel_room = next((room for room in board.rooms if room.name == "Shovel"), None)
+        print('temp placed: {}, shovel placed: {}'.format(temp_is_placed, bool(shovel_room)))
+        if not temp_is_placed:
+            player_on_shovel = board.get_current_player().hex.room == shovel_room
+            print('on shovel', player_on_shovel)
 
-            # get a list of all possible Shovel locations
-            # if the player is not on the shovel,
-            new_hex_locations = location.find_unoccupied_neighbors(board, board.get_all_hexes())
-        else:
-            # make temporary room with hexes adjacent to current player
-            player_hex = board.get_current_player().hex
-            new_hex_locations = location.find_unoccupied_neighbors(board,[player_hex])
-            # make room with hexes at new_hex_locations, and choose from them
-            if new_hex_locations == []:
-                raise InvalidMove("There's nowhere to place the Shovel")
+            if player_on_shovel:
+                # shovel can move anywhere - get neighbors of the whole board
+                temp_locations = location.find_unoccupied_neighbors(board, board.get_all_hexes())
+            else:
+                # shovel can move to adjacent spots that are empty - get player's neighbors
+                player_hex = board.get_current_player().hex
+                temp_locations = location.find_unoccupied_neighbors(board,[player_hex])
+                if temp_locations == []:
+                    raise InvalidMove("There's nowhere to place the Shovel")
 
-        # make a temporary room with these locations if it has not already been done
-        if len(board.rooms) == (8 if shovel_is_placed else 7):
+            # make a temporary room with these locations
             board.rooms.append(Room(
                 name = "Temp",
                 root = None,
-                shape = new_hex_locations,
+                shape = temp_locations,
                 a_spell = None,
                 b_spell = None,
                 relative_shape = False,
             ))
+
         # get the (possibly first-ever) location for the Shovel
         board.flush_hex_data()
         shovel_hex = choose_hexes(
@@ -397,10 +397,11 @@ class Shovel(Spell):
 
         # get rid of the temporary room
         board.rooms.pop()
-        if not(shovel_is_placed):
-            board.rooms.append(self.create_Shovel_room(shovel_location))
+        if shovel_room:
+            shovel_room.hexes[0].location = shovel_location
         else:
-            board.rooms[shovel_index].hexes[0].location = shovel_location
+            board.rooms.append(self.create_Shovel_room(shovel_location))
+
         board.flush_hex_data()
         self._toggle_tapped()
         return True

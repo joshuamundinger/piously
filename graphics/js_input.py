@@ -35,7 +35,8 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
             ret = ls[int(choice) - 1]
             return complete_choice(screen, ret)
         except (ValueError, IndexError):
-            raise InvalidMove('Please enter a number 1-{}'.format(len(ls)))
+            screen.info.error = 'Please enter a number 1-{}'.format(len(ls))
+            return None
     elif 'click_spell_idx' in screen.data and all_spells:
         # This is a bit hacky, but will work for now
         # This depends on the order of board.spells matching the order on the frontend
@@ -43,7 +44,8 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
         spell = all_spells[screen.data['click_spell_idx']]
         screen.data.pop('click_spell_idx')
         if spell not in ls:
-            raise InvalidMove('Cannot cast {}'.format(spell))
+            screen.info.error = 'Cannot cast {}'.format(spell)
+            return None
 
         return complete_choice(screen, spell)
     else:

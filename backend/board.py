@@ -37,9 +37,9 @@ from backend.spell import (
 from copy import deepcopy
 
 class Board(object):
-    def __init__(self, screen, start_faction, actions=3, players=None, artworks=None, spells=None, rooms=None):
+    def __init__(self, screen, faction="Dark", actions=None, players=None, artworks=None, spells=None, rooms=None):
         self.screen = screen
-        self.faction = start_faction
+        self.faction = faction
         self.actions = actions
         self.players = players or {
             'Dark': Player('Dark'),
@@ -188,7 +188,7 @@ class Board(object):
                 connectivity = False
         # TODO: check board is connected
         return connectivity
-    
+
     #returns whether room collides with another room in the board
     def check_for_collisions(self, room):
         all_hexes = self.get_all_hexes()
@@ -206,9 +206,9 @@ class Board(object):
     # dynamic gameplay methods #
     ############################
 
-    def end_turn(self):
+    def end_turn(self, actions=3):
         """Reset board values for start of new turn"""
-        self.actions = 3
+        self.actions = actions
         [spell.untap() for spell in self.spells]
         self.faction = other_faction(self.faction)
 

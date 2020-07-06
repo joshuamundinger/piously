@@ -15,6 +15,7 @@ import copy
 # - cancel options - ex. when choosing spell to cast
 # - audit use of raise InvalidMove vs setting error msg directly
 # - consider refactoring so that current_action is lower level - ex click spell, click hex ect
+# - remove start_faction param from Game
 
 class Game(object):
     def __init__(self, start_faction):
@@ -24,7 +25,7 @@ class Game(object):
 
         self.screen_input = js_input if self.mode == 'js' else pygame_input
         self.screen = MockScreen() if self.mode == 'js' else PygameScreen()
-        self.old_board = Board(self.screen, start_faction)
+        self.old_board = Board(self.screen)
         self.current_board = copy.deepcopy(self.old_board)
         self.game_over = False
         self.start_action = 'place rooms'
@@ -197,7 +198,7 @@ class Game(object):
 
     def maybe_claim_spell(self):
         a_spell = self.get_current_player().hex.room.artwork
-        if a_spell.faction == None:
+        if a_spell and a_spell.faction == None:
             b_spell = self.get_current_player().hex.room.bewitchment
 
             spells = [a_spell, b_spell, 'Neither']
@@ -224,7 +225,7 @@ class Game(object):
 
         if self.maybe_claim_spell():
             self.current_board.end_turn()
-            self.old_board = copy.deepcopy(self.current_board)
+            self.sync_boards()
             return True
         else:
             return False
@@ -233,7 +234,9 @@ class Game(object):
         self.old_board = copy.deepcopy(self.current_board)
 
     def place_rooms(self):
-        instructions = "Arrow keys to move | , . to rotate | l to toggle | enter to end."
+        instructions = \
+            "Use < arrow keys > to move, < , . > to rotate, < n > to switch to the next room, and < enter > to end."
+        # "Arrow keys to move | , . to rotate | l to toggle | enter to end."
 
         if len(self.screen.choices) == 0:
             self.screen.choices.append(None)
@@ -244,7 +247,7 @@ class Game(object):
 
         # if this is the first call to place_rooms, set welcome message
         if not self.screen.choice(0):
-            self.current_board.screen.info.text = "{}\nMoving room {}. {}".format(
+            self.current_board.screen.info.text = "{}\nMoving room {}.\n{}".format(
                 'Welcome to Piously! Dark begins by arranging the board.',
                 current_room.name,
                 instructions,
@@ -256,7 +259,7 @@ class Game(object):
             key = self.screen_input.get_keypress(self.current_board.screen)
             if key == None:
                 return False
-            elif key == "l":
+            elif key == "l" or key == "n":
                 print('checking toggle (l)')
                 if self.current_board.check_for_collisions(current_room):
                     self.current_board.screen.info.error = "Avoid collisions!"
@@ -280,6 +283,7 @@ class Game(object):
                 self.current_board.screen.info.error = None
 
         self.current_board.screen.info.error = None
+        self.current_board.end_turn(actions=None)
         return True
 
     def place_players(self):
@@ -289,25 +293,29 @@ class Game(object):
         player_spots = self.current_board.get_all_hexes()
 
         if not self.screen.choice(0):
-            hex2 = self.screen_input.choose_hexes(
+            hex1 = self.screen_input.choose_hexes(
                 self.current_board.screen,
                 player_spots,
-                prompt_text = "Click to place the Dark player"
+                prompt_text = "Click to place the Light player"
             )
-            if hex2 == None:
+            if hex1 == None:
                 return False
-            self.current_board.move_object(dark_player, to_hex=hex2)
+            self.current_board.move_object(light_player, to_hex=hex1)
             self.current_board.flush_player_data()
-        player_spots.remove(self.screen.choice(0) or hex2)
+            self.current_board.end_turn(actions=None)
 
-        hex1 = self.screen_input.choose_hexes(
+        player_spots.remove(self.screen.choice(0) or hex1)
+
+        hex2 = self.screen_input.choose_hexes(
             self.current_board.screen,
             player_spots,
-            prompt_text = "Now click to place the Light player"
+            prompt_text = "Now click to place the Dark player"
         )
-        if hex1 == None:
+        if hex2 == None:
             return False
-        self.current_board.move_object(light_player, to_hex=hex1)
+        self.current_board.move_object(dark_player, to_hex=hex2)
+        self.current_board.end_turn()
+        # self.sync_boards() # handle in play / do_action
         self.current_board.flush_player_data()
         return True
 
@@ -387,7 +395,7 @@ class Game(object):
             verb = 'Done casting'
         elif move_type == 'end turn':
             done = self.end_turn()
-            verb = 'Turn ended'
+            verb = 'Now it\'s {}\'s turn'.format(self.current_board.faction)
         elif move_type == 'reset turn':
             done = self.reset_turn()
             verb = 'Turn reset'
@@ -404,10 +412,6 @@ class Game(object):
         elif move_type == 'none':
             # This happens if the page is refreshed
             pass
-
-            # self.screen.info.text = \
-            #     'Welcome to Piously! Press arrow keys to arrange board'
-            # self.screen.info.error = 'Implementation in progress'
 
         print('move:{} done:{} buttons_on:{}'.format(
             move_type, done, self.screen.action_buttons_on
@@ -432,15 +436,16 @@ class Game(object):
                     if move_type == 'place rooms':
                         self.sync_boards()
                         self.screen.action_buttons_on = False
-                        self.screen.info.text = '{}. {}'.format(verb, 'Click to place Dark player')
+
+                        # TODO: don't hard code who places first
+                        self.screen.info.text = '{}. {}'.format(verb, 'Click to place Light player')
                         self.start_action = 'place players'
                         data['current_action'] = 'place players'
                     elif move_type == 'place players':
+                        print('done placing faction {}'.format(self.current_board.faction))
                         self.sync_boards()
                         self.screen.action_buttons_on = True # TODO: redundant??
-
-                        # TODO: don't hard code who goes first
-                        self.screen.info.text = '{}! Dark goes first.\n{}'.format(verb, select_option_text)
+                        self.screen.info.text = '{}! Light goes first.\n{}'.format(verb, select_option_text)
                         self.start_action = 'none'
                         data['current_action'] = 'none'
                     else:
@@ -456,6 +461,7 @@ class Game(object):
                 data['current_action'] = 'none'
 
         print('setting state')
+        print('faction {}'.format(self.current_board.faction))
         state = {
             'info': self.screen.info.text,
             'error': self.screen.info.error,
