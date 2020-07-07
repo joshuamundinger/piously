@@ -46,6 +46,9 @@ class Board(object):
             'Light': Player('Light'),
         }
 
+        # TODO: make artworks be named after spells so str() gives spell name
+        # (nice for error msg when artwork is not on board), but don't mess up color
+        # fronted code -- maybe can consolidate room name, spell name, and artwork color
         # IDEA: what if each Room inits it's spells and each a_spell inits it's artworks and neither are stored directly on board
         self.artworks = artworks or [
             Artwork('Pink'),
@@ -213,7 +216,7 @@ class Board(object):
         self.faction = other_faction(self.faction)
 
     def move_object(self, occupant, from_hex=None, to_hex=None):
-            # order matters here, updating occupant.hex last make it ok for from_hex to be occupant.hex initially
+            # order matters here, updating occupant.hex last makes it ok for from_hex to be occupant.hex initially
             if from_hex != None:
                 from_hex.occupant = None
             if to_hex != None:

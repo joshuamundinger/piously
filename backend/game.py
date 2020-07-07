@@ -181,6 +181,7 @@ class Game(object):
                 if not spell.tapped:
                     eligible_spells.append(spell)
 
+        # TODO[idea]: consider also allowing clicking on artwork to choose spell
         spell = self.screen.choice(0) or self.screen_input.choose_from_list(
             self.screen,
             eligible_spells,

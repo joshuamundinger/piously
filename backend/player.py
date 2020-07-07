@@ -8,10 +8,6 @@ class Player(object):
         self.hex = None
 
     def __str__(self):
-        if self.hex == None:
-            location = 'Not placed'
-        else:
-            location = self.hex.location
         return '{faction} player'.format(
             faction = self.faction,
         )
