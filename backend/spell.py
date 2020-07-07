@@ -487,50 +487,56 @@ class Yeoman(Spell):
         self.description = 'Rearrange objects in linked rooms'
         self.artwork = artwork
 
-    # TODO: redo so that partial placements may be flushed to the board
+    # TODO: WARNING this code is has not been tested for pygame board
     def cast(self, board, str=[]):
         choice_idx = 1
         self._validate_artwork_status(board)
-        # get linked rooms
-        populated_linked_rooms = location.linked_rooms(board, self.artwork.hex)
-        # for each room, find the objects in the room.
-        # If there are no objects, remove the room from the list,
-        # so that only populated rooms remain
-        for room in populated_linked_rooms:
-            occupants = [hex.occupant for hex in room.hexes]
-            # only keep track of objects in rooms which have at least one object and more than one hex
-            if not (any(occupants) and len(room.hexes) > 1):
-                populated_linked_rooms.remove(room)
-        # loop through all rooms, and rearrange the objects in each room
-        for room in populated_linked_rooms:
-            # move objects that used to be in the room, one at a time.
-            unoccupied_locations = [hex.location for hex in room.hexes]
-            object_location_pairs = []
-            for hex in room.hexes:
-                # assign a new location to the object on this hex, if there is one
-                # this assignment goes into object_location_pairs
-                if hex.occupant:
-                    # choose a hex not yet targeted
-                    target_hex_index = board.screen.choice(choice_idx) or choose_hexes(
-                        board.screen,
-                        [location.find_hex(board,loc) for loc in unoccupied_locations],
-                        prompt_text = "Click a hex to place {}".format(hex.occupant),
-                        return_index = True
-                    )
-                    if target_hex_index == None:
-                        return False
-                    choice_idx += 1
-                    # keep track of the new location for the object
-                    object_location_pairs.append((hex.occupant, unoccupied_locations[target_hex_index]))
-                    hex.occupant = None
-                    unoccupied_locations.pop(target_hex_index)
-            # update the board with new locations
-            for object_to_place, loc in object_location_pairs:
-                target_hex = location.find_hex(board, loc)
-                target_hex.occupant = object_to_place
-                object_to_place.hex = target_hex
-        self._toggle_tapped()
-        return True
+
+        linked_rooms = location.linked_rooms(board, self.artwork.hex)
+        while True:
+            # check if user is done casting
+            board.screen.info.text = "Press enter to stop casting or any other key to contine" # TODO: remove
+            board.flush_gamepieces()
+            key = get_keypress(board.screen, enable_buttons = False)
+            if key == "return" or key == "Enter":
+                board.screen.action_buttons_on = True
+                self._toggle_tapped()
+                return True
+
+            object_locations = [hex for room in linked_rooms for hex in room.hexes if hex.occupant]
+            from_hex = board.screen.choice(1) or choose_hexes(
+                board.screen,
+                object_locations,
+                prompt_text = "Click an object to move or press enter to end",
+            )
+            if from_hex == None:
+                return False
+
+            obj = from_hex.occupant
+            to_hex = choose_hexes(
+                board.screen,
+                from_hex.room.hexes,
+                prompt_text = "Click where to move {}".format(obj),
+            )
+            if to_hex == None:
+                return False
+
+            if to_hex.occupant:
+                board.swap_object(obj, to_hex.occupant)
+            else:
+                board.move_object(obj, from_hex, to_hex)
+
+            # clear out stored choices beyond the first one if there are any
+            if board.screen.choice(1):
+                board.screen.choices = board.screen.choices[:1]
+
+            # if yeoman is no longer on hex stop casting
+            if self.artwork.hex.aura != board.faction:
+                board.screen.info.error = 'Yeomen no longer on {} aura. Ending cast.'.format(board.faction)
+                board.screen.action_buttons_on = True
+                self._toggle_tapped()
+                return True
+
 
 class Yoke(Spell):
     def __init__(self):

@@ -4,13 +4,14 @@ User input helper functions for js frontend.
 from backend.location import location_to_axial
 from backend.errors import InvalidMove
 
-def get_keypress(screen):
+def get_keypress(screen, enable_buttons=True):
     if 'current_keypress' in screen.data:
         key = screen.data['current_keypress']
         screen.data.pop('current_keypress')
 
         # not calling complete_choice() since don't need to track these
-        screen.action_buttons_on = True
+        if enable_buttons:
+            screen.action_buttons_on = True
         screen.info.error = None
         return key
     else:
