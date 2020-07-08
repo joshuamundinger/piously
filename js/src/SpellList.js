@@ -1,8 +1,5 @@
 import React, { Component } from 'react';
-// import { Layout, Hexagon, Text, HexUtils } from 'react-hexgrid';
 import './GameLayout.css';
-
-// import drag_img from './blank_hex.png';
 
 class SpellList extends Component {
   constructor(props) {
@@ -11,18 +8,33 @@ class SpellList extends Component {
   }
 
   onClick(event) {
-    console.log(`spell before click was ${this.state.current_spell}`)
-    const spell_index = parseInt(event.currentTarget.getAttribute('idx'));
-    const spell_name = event.currentTarget.getAttribute('name');
-    console.log(`clicked ${spell_name} (i=${spell_index})`)
-    this.setState({ current_spell: spell_name });
-    if (this.props.current_action === 'cast spell') {
-      const data = {
+    // console.log(`spell before click was ${this.state.current_spell}`)
+    const index = parseInt(event.currentTarget.getAttribute('idx'));
+    const name = event.currentTarget.getAttribute('name');
+    const unplaced_art = event.currentTarget.getAttribute('unplaced_art');
+    const state = event.currentTarget.className;
+    console.log(`clicked ${name} (i=${index}) ${state}`)
+    this.setState({ current_spell: name });
+
+    if (state === 'active') {
+      let data = {
         current_action: 'cast spell',
-        click_spell: spell_name,
-        click_spell_idx: spell_index,
-      }
-      this.props.onAction(data)
+        click_spell: name,
+        click_spell_idx: index,
+      };
+
+      if (this.props.current_action === 'none' && unplaced_art) {
+        data.current_action = 'drop';
+      } else if (this.props.current_action === 'cast spell') {
+        // do nothing
+      } else if (this.props.current_action === 'none') {
+        // do nothing
+      } else {
+        return;
+      };
+
+      console.log(data)
+      this.props.onAction(data);
     };
   }
 
@@ -38,42 +50,19 @@ class SpellList extends Component {
     this.setState({ current_hex: null });
   }
 
-  color_str(name) {
-    switch(name) {
-      case 'Dark':
-        return '#333'
-      case 'Light':
-        return '#eee'
-      case 'P':
-        return '#faa7f3'
-      default:
-        return 'red'
-    }
-  }
-
-  // <div className={`spell ${spell.art_color}`}>
-  //   <h3>{spell.name}</h3>
-  //   <p>{spell.description}</p>
-  //   <p>Tapped: {spell.tapped}</p>
-  //   <p>Unplaced artwork: {spell.unplaced_art}</p>
-  //   <p>Faction: {spell.faction}</p>
-  // </div>
-
-  // TODO: sort out using color, consolidate with GameLayout
   render() {
     const spells = this.props.spells.map(s => ({
       name: s.name,
       description: s.description,
-      tapped: s.tapped.toString(),
-      unplaced_art: s.artwork.toString(),
+      active: s.active ? 'active' : 'disabled',
+      tapped: s.tapped ? 'X' : '',
+      unplaced_art: s.artwork ? 'X' : '',
       faction: s.faction,
-      faction_color: this.color_str(s.faction),
       art_color: s.name[0],
     }));
 
     return (
-      <table class="spellTable">
-      <caption>Spells</caption>
+      <table className="spellTable">
       <thead>
         <tr>
           <th>name</th>
@@ -85,7 +74,14 @@ class SpellList extends Component {
       </thead>
       <tbody>
         {spells.map((spell, i) => (
-          <tr key={i} name={spell.name} idx={i} onClick={this.onClick.bind(this)}>
+          <tr
+            key={i}
+            className={spell.active}
+            name={spell.name}
+            unplaced_art={spell.unplaced_art}
+            idx={i}
+            onClick={this.onClick.bind(this)
+          }>
             <td>{spell.name}</td>
             <td>{spell.description}</td>
             <td>{spell.tapped}</td>

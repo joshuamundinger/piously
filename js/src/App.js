@@ -7,6 +7,29 @@ import dark_player from './dark_player.png';
 import GameLayout from './GameLayout';
 import SpellList from './SpellList';
 
+// TODO: js improvements
+// critical:
+//  - disable reset button during inital board setup
+//  - error handling based on response code for both fetches
+// nice to have:
+//  - make spells prettier
+//  - convert some things to drag input:
+//     - rearranging auras
+//     - drop spells
+//     - move player???
+//     - placing rooms???
+//  - set the drag image
+// code quality:
+//  - consoldate color code (currently in css, GameLayout, and SpellList)
+//  - remove console.logs
+//  - clean up action_buttons_on
+//     - maybe rename it buttons_enabled
+//     - is it the same as action === 'none'?
+//  - remove unused code (here + in GameLayout)
+//     - commented out code
+//     - drag+drop related things
+//     - pattern / fill related things
+
 class App extends Component {
   constructor(props) {
     super(props);
@@ -21,22 +44,13 @@ class App extends Component {
       actions: null,
       game_id: 'a',
       game_over: false,
-      action_buttons_on: true, // TODO: rename buttons_enabled
+      action_buttons_on: true,
 
       error: null,
       info: null
     };
   }
 
-  // TODO: convert some things to drag input:
-  //  - rearranging auras
-  //  - drop spells
-  //  - move player???
-  //  - placing rooms???
-
-  // TODO:
-  //  - make spells prettier
-  //  - remove console.logs
   componentDidMount() {
     console.log('mounted!');
 
@@ -46,18 +60,8 @@ class App extends Component {
     this.fetchBoard({current_action: 'start'});
   }
 
-  // TODO: remove
-  // async makeBoard() {
-  //   try {
-  //     // start game in case it does not yet exist
-  //     await fetch(`http://localhost:3000/play/${this.state.game_id}`);
-  //   } catch (e) {
-  //       console.log(e);
-  //   }
-  // };
-
   updateCurrentAction(action) {
-    if (this.state.action_buttons_on) {
+    if (this.state.action_buttons_on || action === 'reset turn') {
       this.setState({current_action: action});
       this.fetchBoard({current_action: action});
     }
@@ -66,7 +70,6 @@ class App extends Component {
   async fetchBoard(data) {
     data.game_id = this.state.game_id
     try {
-      // TODO: error handling based on response code for both fetches
       const response = await fetch('http://localhost:3000/do_action', {
         method: 'POST',
         headers: {
@@ -97,7 +100,7 @@ class App extends Component {
     this.updateCurrentAction('pick up');
   }
   handleEndGame() {
-    this.updateCurrentAction('end game');
+    this.updateCurrentAction('maybe end game');
   }
   handleCast() {
     this.updateCurrentAction('cast spell');
@@ -109,13 +112,17 @@ class App extends Component {
     this.updateCurrentAction('reset turn');
   }
   handleNewGame() {
-    // TODO: not sure what action_buttons_on is here, needs to be true
     this.updateCurrentAction('start');
   }
   handleKeyDown(e) {
+    // disable scrolling with arrow keys / space bar
+    if([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
+        e.preventDefault();
+    }
+
     if (this.state.game_over === true) {
       return
-    } else if (this.state.action_buttons_on) {
+    } else if (this.state.action_buttons_on || e.key === 'r') {
       if (e.key === '1') {
         this.handleBless()
       } else if (e.key === '2') {
@@ -144,25 +151,34 @@ class App extends Component {
   };
 
   // RENDER
-  actionText = () => (this.state.actions === 1 ? '1 action' : `${this.state.actions} actions`);
-  // TODO: set viewBox so that it handles board changing position viewBox="-20 -20 100 100"
-  // the format is minx, miny, width, height, where (minx, miny) is the upper left coord
-  render() {
+  actionText = () => (
+    this.state.actions === null ?
+      '' :
+      this.state.actions === 1 ?
+        '· 1 action' :
+        `· ${this.state.actions} actions`
+  );
 
+  render() {
     const info_text = this.state.info ? this.state.info.split("\n") : [];
 
     const bstate = !this.state.action_buttons_on;
     const isOver = this.state.game_over === true;
-    let body;
+
     let statusText;
+    let buttons;
     if (isOver) {
       statusText = <p></p>;
-      body = <body><button onClick={this.handleNewGame.bind(this)}>Start new game</button></body>;
+      buttons =
+        <div className='buttons'>
+          <button onClick={this.handleNewGame.bind(this)}>Start new game</button>
+        </div>;
     } else {
-      statusText = <p>
-        {this.state.current_player}'s Turn · {this.actionText()}
-      </p>;
-      body = <body>
+      statusText =
+        <p>
+          {this.state.current_player}'s Turn {this.actionText()}
+        </p>;
+      buttons =
         <div className='buttons'>
           <button disabled={bstate} onClick={this.handleBless.bind(this)}>Bless (1)</button>
           <button disabled={bstate} onClick={this.handleMove.bind(this)}>Move (2)</button>
@@ -171,26 +187,9 @@ class App extends Component {
           <button disabled={bstate} onClick={this.handleEndGame.bind(this)}>Quit game (shift-q)</button>
           <button disabled={bstate} onClick={this.handleCast.bind(this)}>Cast spell (w)</button>
           <button disabled={bstate} onClick={this.handleEndTurn.bind(this)}>End turn (e)</button>
-          <button disabled={bstate} onClick={this.handleResetTurn.bind(this)}>Reset turn (r)</button>
+          <button onClick={this.handleResetTurn.bind(this)}>Reset turn (r)</button>
         </div>
-        <div className='board'>
-        <HexGrid width={600} height={500} viewBox="-50 -10 100 100">
-          <GameLayout
-            onAction={this.fetchBoard.bind(this)}
-            hexes={this.state.hexes}
-            current_action={this.state.current_action}
-          />
-        </HexGrid>
-        </div>
-        <div className='spells'>
-          <SpellList
-            onAction={this.fetchBoard.bind(this)}
-            spells={this.state.spells}
-            current_action={this.state.current_action}
-          />
-        </div>
-      </body>;
-    }
+    };
 
     return (
       <div className="App">
@@ -200,11 +199,31 @@ class App extends Component {
           <h1>piously</h1>
           {statusText}
           <div className="App-intro">
-            {info_text.map(line => <p>{line}</p>)}
             <p className='error'>{this.state.error}</p>
+            {info_text.map((line, i) => <p key={i}>{line}</p>)}
           </div>
         </header>
-        {body}
+        <div className="App-body">
+          <div className="row">
+            <div className='column buttons-and-board'>
+              {buttons}
+              <HexGrid width={800} height={500} viewBox="0 0 80 50">
+                <GameLayout
+                  onAction={this.fetchBoard.bind(this)}
+                  hexes={this.state.hexes}
+                  current_action={this.state.current_action}
+                />
+              </HexGrid>
+            </div>
+            <div className="column spells">
+              <SpellList
+                onAction={this.fetchBoard.bind(this)}
+                spells={this.state.spells}
+                current_action={this.state.current_action}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

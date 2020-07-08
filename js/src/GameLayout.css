@@ -1,116 +1,126 @@
+/* Basic game settings */
+svg .grid {
+
+}
+
 svg .game {
+  fill: red; /* should get overwritten */
+  stroke-width: 0.1;
+  transition: fill-opacity .2s;
 
+  /* align center game with center of parent */
+	transform: translate(50%, 50%);
 }
-
-svg .game g {
-  /* fill: #4499a9; */
-  /* fill-opacity: 0.6; */
-}
-svg .game g:hover {
-  /* fill: #ffffff; */
-  /* fill-opacity: 0.8; */
-}
-svg .game g:hover text {
-  /* fill-opacity: 1; */
+svg .game :hover {
+  fill-opacity: 0.6;
 }
 
+/* Text color + other text settings */
 svg .game text {
+  fill: #fff;
+  fill-opacity: 1;
+  font-size: 1.6px;
+  user-select: none;
+}
+svg .hoverText {
   fill: #333;
   fill-opacity: 1;
-  font-size: 0.18em;
+  font-size: 1.6px;
+  user-select: none;
+
+  /* align center of hover text at center of parent a bit down from top */
+  text-anchor: middle;
+  transform: translate(50%, 2em);
 }
 
-svg .game g polygon {
+/* Hex + circle specific settings */
+svg .game polygon {
   stroke: #fff;
-  stroke-width: 0.2;
-  transition: fill-opacity .2s;
 }
-svg .game g circle {
+svg .game circle {
+  stroke: #fff;
+  /* stroke-width: 0.2; */
   fill-opacity: 1;
-  stroke: #ffffff;
-  stroke-width: 0.2;
-  transition: fill-opacity .2s;
 }
-svg .game g circle:hover {
-  fill-opacity: 0.5;
+svg .game circle.light {
+  stroke: #333;
 }
-
-svg .game g text {
-  font-size: 0.18em;
-  fill: white;
-  /* fill-opacity: 1; */
-  /* transition: fill-opacity .2s;
-  user-select: none; */
-}
-
-/* svg .game path {
-  fill: none;
-  stroke: #7be3f6;
-  stroke-width: 0.2em;
-  stroke-opacity: 0.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-svg .game g.blocked {
+/* svg .game .blocked {
     fill: #465880;
 }
-svg .game g.blocked:hover {
+svg .game .blocked:hover {
     fill: #53699a;
 } */
 
-svg .game g.P polygon {
+/* Room Colors */
+svg .game .P {
   fill: #faa7f3;
 }
-svg .game g.I polygon {
-    fill: #6e5c99;
+svg .game .I {
+  fill: #8372ab;
 }
-svg .game g.O polygon {
-    fill: #ffad3b;
+svg .game .O {
+  fill: #ffad3b;
 }
-svg .game g.U polygon {
-    fill: #70522b;
+svg .game .U {
+  fill: #997443;
 }
-svg .game g.S polygon {
-    fill: #56c6cc;
+svg .game .S {
+  fill: #56c6cc;
 }
-svg .game g.L polygon {
-    fill: #62c248;
+svg .game .L {
+  fill: #62c248;
 }
-svg .game g.Y polygon {
-    fill: #e8dd61;
+svg .game .Y {
+  fill: #e8dd61;
 }
-svg .game g.Shovel polygon {
-    fill: #d1b982;
+svg .game .Shovel {
+  fill: #d1b982;
 }
-svg .game g.Temp polygon {
-    fill: #8c8c8c;
+svg .game .Temp {
+  fill: #8c8c8c;
 }
 
+/* Spell Table Formatting */
 table.spellTable {
   width: 100%;
-  text-align: left;
+  text-align: center;
+  font-size: 13px;
   border-collapse: collapse;
 }
 table.spellTable td, table.spellTable th {
-  border: 1px solid #FFFFFF;
+  /* border: 1px solid #fff; */
   padding: 5px 4px;
 }
-table.spellTable tbody td {
-  font-size: 13px;
-  color: #333333;
-}
-table.spellTable tr:nth-child(even) {
-  background: #fff;
-}
 table.spellTable thead {
-  background: #333333;
-  /* background: -moz-linear-gradient(top, #666666 0%, #474747 66%, #333333 100%); */
-  /* background: -webkit-linear-gradient(top, #666666 0%, #474747 66%, #333333 100%); */
-  /* background: linear-gradient(to bottom, #666666 0%, #474747 66%, #333333 100%); */
+  background: #333;
+  border: 1px solid #333;
+
 }
 table.spellTable thead th {
-  font-size: 13px;
   font-weight: normal;
-  color: #FFFFFF;
-  text-align: center;
+  color: #eee;
 }
+table.spellTable tbody tr {
+  background: #fff;
+  color: #333;
+  border: 1px solid #888;
+}
+table.spellTable tbody td:nth-child(1),
+table.spellTable tbody td:nth-child(2){
+  text-align: left;
+}
+table.spellTable tbody tr:hover{
+  background: #ddd;
+  /* opacity: 0.6; */
+}
+table.spellTable tbody tr.disabled{
+  background: #eee;
+  /* border: 1px solid red; */
+
+  /* border: 1px solid red; */
+  opacity: 0.7;
+}
+/* table.spellTable tr:nth-child(even) {
+  background: #fff;
+} */
