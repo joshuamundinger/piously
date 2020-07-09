@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, url_for, render_template, request
+from flask import Flask, url_for, render_template, request, make_response, jsonify
 from markupsafe import escape
 
 from backend.game import Game
@@ -66,8 +66,11 @@ def end_game(game_id):
         return 'Ended game {}'.format(game_id)
     return 'No game {}'.format(game_id)
 
-@app.route('/do_action', methods=['POST'])
+@app.route('/do_action', methods=['POST', 'OPTIONS'])
 def do_action():
+    if request.method == "OPTIONS": # CORS preflight
+        return _build_cors_prelight_response()
+
     data = request.json
     game_id = data['game_id']
     game_exists = game_id in GAMES
@@ -97,7 +100,17 @@ def do_action():
     if response_data['current_action'] == 'end game':
         print('app deleting game')
         GAMES.pop(game_id)
-    return response_data
+
+    response = jsonify(response_data)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+def _build_cors_prelight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
 
 # # TODO:
 # https://flask.palletsprojects.com/en/1.1.x/patterns/apierrors/
