@@ -27,7 +27,6 @@ class Game(object):
         self.screen = MockScreen() if self.mode == 'js' else PygameScreen()
         self.old_board = Board(self.screen)
         self.current_board = copy.deepcopy(self.old_board)
-        self.game_over = False
         self.start_action = 'place rooms'
 
     def __str__(self):
@@ -174,24 +173,28 @@ class Game(object):
         return True
 
     def cast_spell(self):
-        faction = self.current_board.faction
-        eligible_spells = []
-        for spell in self.current_board.spells:
-            if spell.faction == faction:
-                if not spell.tapped:
-                    eligible_spells.append(spell)
+        eligible_spells = self.current_board.get_eligible_spells()
 
         # TODO[idea]: consider also allowing clicking on artwork to choose spell
         spell = self.screen.choice(0) or self.screen_input.choose_from_list(
             self.screen,
             eligible_spells,
             'Choose spell to cast:',
-            '{} does not have untapped spells'.format(faction),
+            '{} does any spells that can be cast'.format(self.current_board.faction),
             all_spells = self.current_board.spells)
         if spell == None:
             return False
 
-        return spell.cast(self.current_board)
+        try:
+            done = spell.cast(self.current_board)
+        except InvalidMove as error:
+            spell.untap() # mark spell untapped since it did not complete
+            raise InvalidMove(str(error))
+            # TODO: make sure no spells raise after mutating game state
+            # TODO[idea]: store a 3rd version of board to reset action and use
+            # that here
+
+        return done
 
     def reset_turn(self):
         self.current_board = copy.deepcopy(self.old_board)
@@ -287,21 +290,32 @@ class Game(object):
         self.current_board.end_turn(actions=None)
         return True
 
+    def choose_first_player(self):
+        print('in chhoose first player')
+        first_faction = self.screen_input.choose_from_list(
+            self.screen,
+            ['Light', 'Dark'],
+            'Light chooses who goes first'
+        )
+        if first_faction == None:
+            return False
+        elif first_faction == 'Dark':
+            self.current_board.end_turn(actions=None)
+        return True
+
     def place_players(self):
-        # TODO: let light pick who places first
-        light_player = self.current_board.players['Light']
-        dark_player = self.current_board.players['Dark']
+        print('in place players')
         player_spots = self.current_board.get_all_hexes()
 
         if not self.screen.choice(0):
             hex1 = self.screen_input.choose_hexes(
                 self.current_board.screen,
                 player_spots,
-                prompt_text = "Click to place the Light player"
+                prompt_text = "Click to place the {} player".format(self.current_board.faction)
             )
             if hex1 == None:
                 return False
-            self.current_board.move_object(light_player, to_hex=hex1)
+            self.current_board.move_object(self.current_board.get_current_player(), to_hex=hex1)
             self.current_board.flush_player_data()
             self.current_board.end_turn(actions=None)
 
@@ -310,11 +324,11 @@ class Game(object):
         hex2 = self.screen_input.choose_hexes(
             self.current_board.screen,
             player_spots,
-            prompt_text = "Now click to place the Dark player"
+            prompt_text = "Now click to place the {} player".format(self.current_board.faction)
         )
         if hex2 == None:
             return False
-        self.current_board.move_object(dark_player, to_hex=hex2)
+        self.current_board.move_object(self.current_board.get_current_player(), to_hex=hex2)
         self.current_board.end_turn()
         # self.sync_boards() # handle in play / do_action
         self.current_board.flush_player_data()
@@ -355,14 +369,14 @@ class Game(object):
                     )
                     if confirmation == 'Yes':
                         break
-            except InvalidMove as move:
-                self.screen.info.error = '{} '.format(move)
+            except InvalidMove as error:
+                self.screen.info.error = '{}'.format(move)
         self.end_game()
         self.screen.info.error = "Click on any hex to exit"
         self.screen_input.get_click(self.screen)
 
     def end_game(self):
-        self.game_over = True
+        self.current_board.game_over = True
         winning_faction = self.is_game_over()
         if winning_faction:
             self.screen.info.text = "WINNER: {}".format(winning_faction)
@@ -375,106 +389,150 @@ class Game(object):
         return True
 
 
-    def do_action_helper(self, move_type):
+    def call_action(self):
+        action = self.screen.data['current_action']
+        print('calling {}'.format(action))
         done = False
-        verb = ''
+        done_msg = ''
 
-        if move_type == 'move':
+        if action == 'move':
             done = self.move()
-            verb = 'Done moving'
-        elif move_type == 'bless':
+            done_msg = 'Done moving'
+        elif action == 'bless':
             done = self.bless()
-            verb = 'Done blessing'
-        elif move_type == 'drop':
+            done_msg = 'Done blessing'
+        elif action == 'drop':
             done = self.drop()
-            verb = 'Done dropping'
-        elif move_type == 'pick up':
+            done_msg = 'Done dropping'
+        elif action == 'pick up':
             done = self.pick_up()
-            verb = 'Done picking up'
-        elif move_type == 'cast spell':
+            done_msg = 'Done picking up'
+        elif action == 'cast spell':
             done = self.cast_spell()
-            verb = 'Done casting'
-        elif move_type == 'end turn':
+            done_msg = 'Done casting'
+        elif action == 'end turn':
             done = self.end_turn()
-            verb = 'Now it\'s {}\'s turn'.format(self.current_board.faction)
-        elif move_type == 'reset turn':
+            done_msg = 'Now it\'s {}\'s turn'.format(self.current_board.faction)
+        elif action == 'reset turn':
             done = self.reset_turn()
-            verb = 'Turn reset'
-        elif move_type == 'end game':
-            # TODO: get confirmation
-            done = self.end_game()
-            verb = 'Game over'
-        elif move_type == 'place rooms':
+            done_msg = 'Turn reset'
+        elif action == 'place rooms':
             done = self.place_rooms()
-            verb = 'Board setup done'
-        elif move_type == 'place players':
+            done_msg = 'Board setup done'
+        elif action == 'choose first player':
+            done = self.choose_first_player()
+            done_msg = '{} places first'.format(self.current_board.faction)
+        elif action == 'place players':
             done = self.place_players()
-            verb = 'Player setup done'
-        elif move_type == 'none':
-            # This happens if the page is refreshed
+            done_msg = 'Player setup done'
+        elif action == 'none':
+            # This happens if the page is refreshed or the user has not selected
+            # a new option after the previous one completed
             pass
+        elif action == 'maybe end game':
+            confirmation = self.screen_input.choose_from_list(
+                self.screen,
+                ['Yes', 'No'],
+                'Are you sure you want to forfeit and quit?'
+            )
+            if confirmation == 'Yes':
+                self.current_board.game_over = True
+                done = True
+                winning_faction = self.is_game_over()
+                if winning_faction:
+                    done_msg = "WINNER: {}".format(winning_faction)
+                else:
+                    current_faction = self.current_board.faction
+                    done_msg = '{} forefits, {} wins!'.format(
+                        current_faction,
+                        other_faction(current_faction),
+                    )
+            elif confirmation == 'No':
+                done = True
+                done_msg = 'Not ending game'
 
         print('move:{} done:{} buttons_on:{}'.format(
-            move_type, done, self.screen.action_buttons_on
+            action, done, self.screen.action_buttons_on
         ))
-        return done, verb
+
+        if done:
+            print('{} done'.format(action))
+            select_option_text = 'Select an option (click button or use keybinding)'
+
+            self.screen.data['current_action'] = 'none'
+            self.screen.info.text = '{}. {}'.format(done_msg, select_option_text)
+            self.screen.action_buttons_on = True # TODO: redundant??
+            self.screen.choices = []
+
+            if action == 'place rooms':
+                self.start_action = 'choose first player'
+                self.screen.data['current_action'] = 'choose first player'
+                self.screen.info.text = '{}. {}'.format(done_msg, 'Light chooses who goes first')
+                self.screen.action_buttons_on = False
+                self.sync_boards()
+
+                if 'choice_idx' in self.screen.data:
+                    self.screen.data.pop('choice_idx')
+                self.choose_first_player()
+            elif action == 'choose first player':
+                self.start_action = 'place players'
+                self.screen.data['current_action'] = 'place players'
+                self.screen.info.text = '{}. {}'.format(done_msg, 'Click to place the Light player')
+                self.screen.action_buttons_on = False
+                self.sync_boards()
+
+                if 'click_x' in self.screen.data:
+                    self.screen.data.pop('click_x')
+                self.place_players()
+            elif action == 'place players':
+                self.start_action = 'none'
+                self.screen.info.text = '{}! {} goes first.\n{}'.format(
+                    done_msg,
+                    self.current_board.faction,
+                    select_option_text,
+                )
+                self.screen.reset_on = True
+                self.sync_boards()
+            elif action == 'maybe end game' and self.current_board.game_over:
+                self.start_action = 'end game'
+                self.screen.data['current_action'] = 'end game'
+                self.screen.info.text = done_msg
+
 
     # main method for js frontend
     def do_action(self, data):
-        select_option_text = 'Select an option (click button or use keybinding)'
         if self.is_game_over():
             self.end_game()
         else:
             self.screen.data = data
-            move_type = data['current_action']
             self.screen.info.error = None
 
             try:
-                done, verb = self.do_action_helper(move_type)
-
-                if done:
-                    self.screen.choices = []
-                    if move_type == 'place rooms':
-                        self.sync_boards()
-                        self.screen.action_buttons_on = False
-
-                        # TODO: don't hard code who places first
-                        self.screen.info.text = '{}. {}'.format(verb, 'Click to place Light player')
-                        self.start_action = 'place players'
-                        data['current_action'] = 'place players'
-                    elif move_type == 'place players':
-                        print('done placing faction {}'.format(self.current_board.faction))
-                        self.sync_boards()
-                        self.screen.action_buttons_on = True # TODO: redundant??
-                        self.screen.info.text = '{}! Light goes first.\n{}'.format(verb, select_option_text)
-                        self.start_action = 'none'
-                        data['current_action'] = 'none'
-                    else:
-                        self.screen.action_buttons_on = True # TODO: redundant??
-                        self.screen.info.text = '{}. {}'.format(verb, select_option_text)
-                        data['current_action'] = 'none'
-
+                self.call_action()
             except InvalidMove as error:
-                self.screen.info.text = select_option_text
-                self.screen.info.error = str(error)
+                self.screen.info.text = 'Select an option (click button or use keybinding)'
+                self.screen.info.error = 'INVALID MOVE: {}'.format(error)
                 self.screen.choices = []
                 self.screen.action_buttons_on = True
-                data['current_action'] = 'none'
+                self.screen.data['current_action'] = 'none'
 
         print('setting state')
-        print('faction {}'.format(self.current_board.faction))
+        # print('faction {}'.format(self.current_board.faction))
         state = {
             'info': self.screen.info.text,
             'error': self.screen.info.error,
             'action_buttons_on': self.screen.action_buttons_on,
+            'reset_on': self.screen.reset_on,
+            'current_action': self.screen.data['current_action'],
+
             'current_player': self.current_board.faction,
-            'current_action': data['current_action'],
             'actions': self.current_board.actions,
             'hexes': self.current_board.return_hex_data(),
             'players': self.current_board.return_player_data(),
             'spells': self.current_board.return_spell_data(),
-            'game_over': self.game_over,
+            'game_over': self.current_board.game_over,
         }
+        # print(state)
         return state
 
 

@@ -61,6 +61,9 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
 """
 Choose a location based on clicking a hex
 
+WARNING: calling function must validate that the list has >1 element
+  and call complete_choice() on the value returned
+
 Params:
  - screen: a PygameScreen() UI object
  - axial_pos: a list of tuples (x-coord, y-coord)
@@ -68,15 +71,9 @@ Params:
 
 Returns: index of the chosen location
 """
-def location_helper(screen, axial_pos, prompt_text="Click a location", error_text="No valid locations"):
-    # not calling complete_choice() since caller will do that
-
-    if len(axial_pos) == 0:
-        raise InvalidMove(error_text)
-    elif len(axial_pos) == 1:
-        return 0
+def location_helper(screen, axial_pos, prompt_text="Click a location"):
     # user already clicked a hex
-    elif 'click_x' in screen.data and 'click_y' in screen.data:
+    if 'click_x' in screen.data and 'click_y' in screen.data:
         selected_coords = screen.data['click_x'], screen.data['click_y']
         screen.data.pop('click_x')
         screen.data.pop('click_y')
@@ -104,9 +101,18 @@ Params:
 Returns: chosen hex, or index of chosen hex if return_index is True
 """
 def choose_hexes(screen, hex_list, prompt_text="Choose a hex:", error_text="No valid hexes", return_index = False):
+    if len(hex_list) == 0:
+        raise InvalidMove(error_text)
+    elif len(hex_list) == 1:
+        if return_index:
+            return complete_choice(screen, 0)
+        else:
+            return complete_choice(screen, hex_list[0])
+
     # get a list of axial coordinates for the hexes
+    screen.active_hexes = hex_list
     axial_coordinates = [location_to_axial(x.location) for x in hex_list]
-    chosen_index = location_helper(screen, axial_coordinates, prompt_text, error_text)
+    chosen_index = location_helper(screen, axial_coordinates, prompt_text)
 
     if return_index:
         return complete_choice(screen, chosen_index)
@@ -119,6 +125,7 @@ def choose_hexes(screen, hex_list, prompt_text="Choose a hex:", error_text="No v
 Helper to make all the needed changes once a choice has been made
 """
 def complete_choice(screen, choice):
+    screen.active_hexes = []
     screen.action_buttons_on = True
     screen.choices.append(choice)
     screen.info.error = None

@@ -15,6 +15,9 @@ from copy import deepcopy
 import backend.location as location
 import numpy as np
 
+# TODO: make more things allow clicking (either replace keypress or allow both)
+#  - Leap + Locksmith choose_from_list to pick what obj to move
+
 class Spell(object):
     def __init__(self):
         # name, description, color, and artwork are filled in by child constructors
@@ -42,7 +45,7 @@ class Spell(object):
     ############################
 
     # This should be called at the start of all cast() methods
-    def _validate_spell_status(self, board):
+    def _validate_spell_status_and_tap(self, board):
         # current player must own spell
         if self.faction != board.faction:
             raise InvalidMove("{} cannot cast {} because it is owned by {}".format(
@@ -58,6 +61,9 @@ class Spell(object):
         # artwork must also have correct status
         self._validate_artwork_status(board)
 
+        # mark spell used
+        self.tapped = True
+
     def _validate_artwork_status(self, board):
         # if the spell has an artwork, check if it's placed on the board, on your aura
         if self.artwork:
@@ -67,21 +73,24 @@ class Spell(object):
             else:
                 raise InvalidMove('{} is not placed on board'.format(self.name))
 
-    # TODO: verify all spells call this and _validate_spell_status in their cast method
-    # This should be called at the end of all cast() methods
-    def _toggle_tapped(self):
-        self.tapped = not self.tapped
+    # TODO: verify all returns call this method
+    def _exit_cast(self, done):
+        if done:
+            self.tapped = True
+        else:
+            self.tapped = False
+        return done
 
 class Priestess(Spell):
     def __init__(self, artwork):
-        super(Priestess, self).__init__() # initializes faction and tapped
+        super(Priestess, self).__init__()
         self.name = 'Priestess'
         self.color = 'Pink'
         self.description = 'Grow linked region'
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
 
         # choose the hex to bless
         adjacent_linked_hexes = location.adjacent_linked_region(board, board.artworks[0].hex)
@@ -92,21 +101,20 @@ class Priestess(Spell):
             error_text = 'There are no hexes which the Priestess may bless',
         )
         if not target_hex:
-            return False
+            return self._exit_cast(done=False)
 
         target_hex.aura = board.faction
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Purify(Spell):
     def __init__(self):
-        super(Purify, self).__init__() # initializes faction and tapped
+        super(Purify, self).__init__()
         self.name = 'Purify'
         self.color = 'Pink'
         self.description = 'Bless underneath adjacent object'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         adj_hexes = location.find_adjacent_hexes(board, board.get_current_player().hex)
         # get list of occupied neighbors which are the wrong aura
         purifiable_hexes = [h for h in adj_hexes if (h.occupant and h.aura != board.faction)]
@@ -118,22 +126,21 @@ class Purify(Spell):
             error_text = 'No hexes to Purify',
         )
         if not hex:
-            return False
+            return self._exit_cast(done=False)
 
         hex.aura = board.faction
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Imposter(Spell):
     def __init__(self, artwork):
-        super(Imposter, self).__init__() # initializes faction and tapped
+        super(Imposter, self).__init__()
         self.name = 'Imposter'
         self.color = 'Indigo'
         self.description = 'Copy auras from Imposter\'s room to linked room'
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         # get a linked room.
         target_room = board.screen.choice(1) or choose_from_list(
             board.screen,
@@ -141,25 +148,24 @@ class Imposter(Spell):
             prompt_text = 'Choose room to copy to:',
         )
         if target_room == None:
-            return False
+            return self._exit_cast(done=False)
         # get list of auras in artwork's room
         aura_list = [hex.aura for hex in self.artwork.hex.room.hexes if hex.aura]
         # TODO: handle if you are copying more than one aura onto the Shovel
         print('about to place')
-        if place_auras_on_hexes(board, aura_list, target_room.hexes, 2):
-            self._toggle_tapped()
-            return True
-        return False
+        if place_auras_on_hexes(board, self, aura_list, target_room.hexes, 2):
+            return self._exit_cast(done=True)
+        return self._exit_cast(done=False)
 
 class Imprint(Spell):
     def __init__(self):
-        super(Imprint, self).__init__() # initializes faction and tapped
+        super(Imprint, self).__init__()
         self.name = 'Imprint'
         self.color = 'Indigo'
         self.description = 'Copy auras from around enemy to self'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
 
         # requires no input from player
         # get auras around opponent
@@ -181,8 +187,7 @@ class Imprint(Spell):
         for i in range(6):
             if opposing_neighboring_auras[i] != 'Skip' and current_player_neighborhood[i]:
                 current_player_neighborhood[i].aura = opposing_neighboring_auras[i]
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Opportunist(Spell):
     def __init__(self, artwork):
@@ -193,12 +198,13 @@ class Opportunist(Spell):
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
 
         eligible_spells = []
         for spell in board.spells:
             if spell.faction == board.faction and spell.tapped:
                 # TODO: verify spell's room is linked to the Opportunist
+                # TODO: verify spell is not the Opportunist
                 eligible_spells.append(spell)
         spell = choose_from_list(
             board.screen,
@@ -208,37 +214,33 @@ class Opportunist(Spell):
             all_spells = board.spells,
         )
         if not spell:
-            return False
+            return self._exit_cast(done=False)
 
-        spell.tapped = False
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Overwork(Spell):
     def __init__(self):
-        super(Overwork, self).__init__() # initializes faction and tapped
+        super(Overwork, self).__init__()
         self.name = 'Overwork'
         self.color = 'Orange'
         self.description = 'Gain one action per adjacent object'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         adj_hexes = location.find_adjacent_hexes(board, board.get_current_player().hex)
         board.actions += len([x for x in adj_hexes if x.occupant])
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Usurper(Spell):
     def __init__(self, artwork):
-        super(Usurper, self).__init__() # initializes faction and tapped
+        super(Usurper, self).__init__()
         self.name = 'Usurper'
         self.color = 'Umber'
         self.description = 'Shrink region twice, then grow twice'
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status(board)
-        self._toggle_tapped()
+        self._validate_spell_status_and_tap(board)
         # pick two linked hexes to flip
         for i in range(2):
             hex_to_flip = board.screen.choice(1 + i) or choose_hexes(
@@ -247,13 +249,13 @@ class Usurper(Spell):
                 prompt_text = 'Click a {} aura to flip'.format(self.faction),
             )
             if hex_to_flip == None:
-                return False
+                return self._exit_cast(done=False)
             hex_to_flip.aura = other_faction(hex_to_flip.aura)
             board.flush_aura_data()
             # check to see if we flipped under the artwork/
             # if so, stop Usurping
             if self.artwork.hex.aura != board.faction:
-                return True
+                return self._exit_cast(done=True)
         for i in range(2):
             hex_to_change = board.screen.choice(3 + i) or choose_hexes(
                 board.screen,
@@ -261,34 +263,33 @@ class Usurper(Spell):
                 prompt_text = 'Click a hex on which to grow',
             )
             if hex_to_change == None:
-                return False
+                return self._exit_cast(done=False)
             hex_to_change.aura = board.faction
             board.flush_aura_data()
-        return True
+        return self._exit_cast(done=True)
 
 class Upset(Spell):
     def __init__(self):
-        super(Upset, self).__init__() # initializes faction and tapped
+        super(Upset, self).__init__()
         self.name = 'Upset '
         self.color = 'Umber'
         self.description = 'Rearrange auras under & around self'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         # get neighborhood of 7 hexes and their auras
         neighborhood = location.find_adjacent_hexes(board, board.get_current_player().hex)
         neighborhood.append(board.get_current_player().hex)
         # get auras on neighborhood
         aura_list = [x.aura for x in neighborhood if x.aura]
         # rearrange auras in neighborhood
-        if place_auras_on_hexes(board, aura_list, neighborhood, 1):
-            self._toggle_tapped()
-            return True
-        return False
+        if place_auras_on_hexes(board, self, aura_list, neighborhood, 1):
+            return self._exit_cast(done=True)
+        return self._exit_cast(done=False)
 
 class Stonemason(Spell):
     def __init__(self, artwork):
-        super(Stonemason, self).__init__() # initializes faction and tapped
+        super(Stonemason, self).__init__()
         self.name = 'Stonemason'
         self.color = 'Sapphire'
         self.description = 'Move linked room anywhere'
@@ -303,7 +304,7 @@ class Stonemason(Spell):
             prompt_text="Choose a linked room to move:"
         )
         if moving_room == None:
-            return False
+            return self._exit_cast(done=False)
 
         board.screen.info.text = "Arrow keys move Room {}. < , > and < . > rotate. Enter to finish.".format(moving_room)
         finished_with_stonemason = False
@@ -311,7 +312,7 @@ class Stonemason(Spell):
         while not(finished_with_stonemason):
             key = get_keypress(board.screen)
             if key == None:
-                return False
+                return self._exit_cast(done=False)
             elif key == "return" or key == "Enter":
                 # check to see if no hexes overlap
                 finished_with_stonemason = True
@@ -337,15 +338,14 @@ class Stonemason(Spell):
                 pass
 
         board.screen.info.error = ""
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Shovel(Spell):
     def __init__(self):
-        super(Shovel, self).__init__() # initializes faction and tapped
+        super(Shovel, self).__init__()
         self.name = 'Shovel'
         self.color = 'Sapphire'
-        self.description = "Move Shovel room to adjacent space, or if you\'re on the Shovel move it anywhere"
+        self.description = "Move Shovel to adjacent space, or if you\'re on it move Shovel anywhere"
 
     def create_Shovel_room(self, location):
         return Room("Shovel",
@@ -354,7 +354,7 @@ class Shovel(Spell):
         )
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
 
         # temp room represents all the places that the shovel can be placed
         temp_is_placed = any([room.name == "Temp" for room in board.rooms])
@@ -392,7 +392,7 @@ class Shovel(Spell):
             prompt_text = "Choose where the Shovel will go"
         )
         if shovel_hex == None:
-            return False
+            return self._exit_cast(done=False)
         shovel_location = shovel_hex.location
 
         # get rid of the temporary room
@@ -403,19 +403,18 @@ class Shovel(Spell):
             board.rooms.append(self.create_Shovel_room(shovel_location))
 
         board.flush_hex_data()
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Locksmith(Spell):
     def __init__(self, artwork):
-        super(Locksmith, self).__init__() # initializes faction and tapped
+        super(Locksmith, self).__init__()
         self.name = 'Locksmith'
         self.color = 'Lime'
         self.description = 'Move linked object anywhere'
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         # get list of linked objects
         linked_hexes = location.linked_hexes(board, self.artwork.hex)
         linked_objects = [hex.occupant for hex in linked_hexes if hex.occupant]
@@ -433,7 +432,7 @@ class Locksmith(Spell):
             prompt_text='Choose object to move:',
         )
         if target_object == None:
-            return False
+            return self._exit_cast(done=False)
 
         target_hex = choose_hexes(
             board.screen,
@@ -441,21 +440,20 @@ class Locksmith(Spell):
             prompt_text='Click where to move {}'.format(target_object)
         )
         if target_hex == None:
-            return False
+            return self._exit_cast(done=False)
 
         board.move_object(target_object, from_hex = target_object.hex, to_hex = target_hex)
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Leap(Spell):
     def __init__(self):
-        super(Leap, self).__init__() # initializes faction and tapped
+        super(Leap, self).__init__()
         self.name = 'Leap  '
         self.color = 'Lime'
         self.description = 'Trade places with object in row'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
 
         current_player = board.get_current_player()
 
@@ -472,16 +470,14 @@ class Leap(Spell):
             'There\'s no object to Leap with',
         )
         if not target_object:
-            return False
+            return self._exit_cast(done=False)
 
         board.swap_object(current_player, target_object)
-        # TODO: test
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 class Yeoman(Spell):
     def __init__(self, artwork):
-        super(Yeoman, self).__init__() # initializes faction and tapped
+        super(Yeoman, self).__init__()
         self.name = 'Yeoman'
         self.color = 'Yellow'
         self.description = 'Rearrange objects in linked rooms'
@@ -489,7 +485,6 @@ class Yeoman(Spell):
 
     # TODO: WARNING this code is has not been tested for pygame board
     def cast(self, board, str=[]):
-        choice_idx = 1
         self._validate_artwork_status(board)
 
         linked_rooms = location.linked_rooms(board, self.artwork.hex)
@@ -500,8 +495,7 @@ class Yeoman(Spell):
             key = get_keypress(board.screen, enable_buttons = False)
             if key == "return" or key == "Enter":
                 board.screen.action_buttons_on = True
-                self._toggle_tapped()
-                return True
+                return self._exit_cast(done=True)
 
             object_locations = [hex for room in linked_rooms for hex in room.hexes if hex.occupant]
             from_hex = board.screen.choice(1) or choose_hexes(
@@ -510,7 +504,7 @@ class Yeoman(Spell):
                 prompt_text = "Click an object to move or press enter to end",
             )
             if from_hex == None:
-                return False
+                return self._exit_cast(done=False)
 
             obj = from_hex.occupant
             to_hex = choose_hexes(
@@ -519,7 +513,7 @@ class Yeoman(Spell):
                 prompt_text = "Click where to move {}".format(obj),
             )
             if to_hex == None:
-                return False
+                return self._exit_cast(done=False)
 
             if to_hex.occupant:
                 board.swap_object(obj, to_hex.occupant)
@@ -534,19 +528,18 @@ class Yeoman(Spell):
             if self.artwork.hex.aura != board.faction:
                 board.screen.info.error = 'Yeomen no longer on {} aura. Ending cast.'.format(board.faction)
                 board.screen.action_buttons_on = True
-                self._toggle_tapped()
-                return True
+                return self._exit_cast(done=True)
 
 
 class Yoke(Spell):
     def __init__(self):
-        super(Yoke, self).__init__() # initializes faction and tapped
+        super(Yoke, self).__init__()
         self.name = 'Yoke  '
         self.color = 'Yellow'
         self.description = 'Move self and object one space'
 
     def cast(self, board):
-        self._validate_spell_status(board)
+        self._validate_spell_status_and_tap(board)
         current_player = board.get_current_player()
 
         # get target object for yoking
@@ -557,7 +550,7 @@ class Yoke(Spell):
             'There is no other object to Yoke',
         )
         if target_object == None:
-            return False
+            return self._exit_cast(done=False)
 
         # get directions for yolking
         # elements are: (player_destination, target_destination)
@@ -581,7 +574,7 @@ class Yoke(Spell):
             error_text = 'These two objects have no common direction to move',
         )
         if player_direction == None:
-            return False
+            return self._exit_cast(done=False)
         # get the directions of both player and target by finding the entry
         # whose first entry is the player
         movement_data = [x for x in possible_location_data if x[0] == player_direction][0]
@@ -592,8 +585,7 @@ class Yoke(Spell):
         target_object.hex = movement_data[1]
         current_player.hex.occupant = current_player
         target_object.hex.occupant = target_object
-        self._toggle_tapped()
-        return True
+        return self._exit_cast(done=True)
 
 """
 Helper method to place auras on hexes, used in Imposter and Upset.
@@ -606,31 +598,33 @@ Params:
     will automatically be removed
  - hex_list: list of hexes to put auras on
 """
-def place_auras_on_hexes(board, aura_list, hex_list, choice_idx):
-    # clean the list of empty auras
-    starting_auras = [hex.aura for hex in hex_list]
-    aura_list = [aura for aura in aura_list if aura]
-    if len(aura_list) > len(hex_list):
+def place_auras_on_hexes(board, spell, aura_list, hex_list, choice_idx):
+    auras_to_place = board.screen.choice(choice_idx)
+    if not auras_to_place:
+         auras_to_place = [aura for aura in aura_list if aura] # remove Nones
+         board.screen.choices.append(auras_to_place)
+
+         # clear out existing auras on the hexes
+         for hex in hex_list:
+             hex.aura = None
+         board.flush_aura_data()
+
+    if len(auras_to_place) > len(hex_list):
         raise RuntimeError('Pidgeonhole Problem: tried to put too many auras on a set of hexes')
-    remaining_auras = deepcopy(aura_list)
-    # clear auras in target room
-    for hex in hex_list:
-        hex.aura = None
-    board.flush_aura_data()
-    for aura in aura_list:
-        new_hex = board.screen.choice(choice_idx) or choose_hexes(
+
+    all_auras = deepcopy(auras_to_place)
+    for aura in all_auras:
+        new_hex = choose_hexes(
             board.screen,
             [hex for hex in hex_list if not hex.aura],
-            prompt_text = "Click a hex for aura {}. Auras remaining: {}".format(aura, remaining_auras),
+            prompt_text = "Auras to place: {}. Click a hex for aura {}".format(auras_to_place, aura),
         )
         if new_hex == None:
-            # put auras back how they were
-            # TODO: improve this for js screen, since reset here means it won't "flush" auras
-            for i in range(len(hex_list)):
-                hex_list[i].aura = starting_auras[i]
-            return False
-        choice_idx += 1
-        remaining_auras.remove(aura)
+            return spell._exit_cast(done=False)
+
+        print('setting aura for {} to {}'.format(new_hex, aura))
         new_hex.aura = aura
+        auras_to_place.remove(aura)
         board.flush_aura_data()
-    return True
+
+    return spell._exit_cast(done=True)

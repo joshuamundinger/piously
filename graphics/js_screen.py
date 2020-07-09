@@ -12,14 +12,15 @@ class MockScreen(object):
         self.hex_data = []
         self.artwork_data = []
         self.aura_data = []
+        self.active_hexes = []
 
         # used for pygame mode
         self.key = None
         self.click_hex = None
 
-        # TODO used for js mode?
         self.data = None
         self.action_buttons_on = True
+        self.reset_on = False
         self.choices = []
 
     def loop_once(self):

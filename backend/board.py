@@ -45,6 +45,7 @@ class Board(object):
             'Dark': Player('Dark'),
             'Light': Player('Light'),
         }
+        self.game_over = False
 
         # TODO: make artworks be named after spells so str() gives spell name
         # (nice for error msg when artwork is not on board), but don't mess up color
@@ -161,6 +162,27 @@ class Board(object):
     def get_placed_non_player_objects(self):
         return [obj for obj in self.get_placed_objects() if obj != self.get_current_player()]
 
+    def get_eligible_spells(self, include_unplaced=False):
+        eligible_spells = []
+        for spell in self.spells:
+            # check player owns spell and hasn't already used it
+            if spell.faction != self.faction:
+                continue
+            elif spell.tapped:
+                continue
+
+            # if spell has artwork, it should be placed on the player's aura
+            if spell.artwork:
+                if not spell.artwork.hex:
+                    if not include_unplaced:
+                        continue
+                elif spell.artwork.hex.aura != self.faction:
+                    continue
+
+            eligible_spells.append(spell)
+
+        return eligible_spells
+
     ########################
     # board layout methods #
     ########################
@@ -269,18 +291,21 @@ class Board(object):
                     'room': hex.room.name,
                     'obj_color': color,
                     'aura_color': hex.aura,
+                    'active': not self.game_over and hex in self.screen.active_hexes,
                 })
         return hex_maps
 
     def return_spell_data(self):
         data = []
+        active_spells = self.get_eligible_spells(include_unplaced=True)
         for spell in self.spells:
             data.append({
                 'name': spell.name,
                 'description': spell.description,
                 'faction': spell.faction,
                 'tapped': spell.tapped,
-                'artwork': bool(spell.artwork and not spell.artwork.hex)
+                'artwork': bool(spell.artwork and not spell.artwork.hex),
+                'active': not self.game_over and spell in active_spells,
             })
         return data
 

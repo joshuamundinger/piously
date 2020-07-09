@@ -91,10 +91,13 @@ def do_action():
     game = GAMES[game_id]
     if data['current_action'] == 'start':
         data['current_action'] = game.start_action
-    elif data['current_action'] == 'end game':
-        GAMES.pop(game_id)
 
-    return game.do_action(data)
+    response_data = game.do_action(data)
+
+    if response_data['current_action'] == 'end game':
+        print('app deleting game')
+        GAMES.pop(game_id)
+    return response_data
 
 # # TODO:
 # https://flask.palletsprojects.com/en/1.1.x/patterns/apierrors/
