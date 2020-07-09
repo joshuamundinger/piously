@@ -1,0 +1,54 @@
+.App {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.App-header {
+  background-color: #333;
+  color: #eee;
+  padding: 1em;
+}
+
+.App-logo {
+  height: 50px;
+}
+
+.App-intro {
+  background-color: #eee;
+  color: #333;
+  padding: 5px;
+}
+
+.App-body {
+  background-color: #eee;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  /* margin: 0px; */
+}
+
+.error {
+  color: #ba1414;
+}
+
+.row {
+  display: flex;
+  /* margin-top: 1em; */
+}
+
+.column {
+  flex: 50%;
+}
+
+[draggable] {
+  /* make elements draggable*/
+  -moz-user-drag: element;
+  -webkit-user-drag: element;
+  -khtml-user-drag: element;
+  user-drag: element;
+
+  /* make text on draggable objects not selectable */
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

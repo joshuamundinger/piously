@@ -19,7 +19,7 @@ class Room(object):
         if relative_shape:
             self.hexes = [Hex(self, root)] + [Hex(self, root + delta) for delta in shape]
         else:
-            #ignore 
+            # ignore
             self.hexes = [Hex(self, x) for x in shape]
         self.name = name
 
@@ -39,13 +39,14 @@ class Room(object):
             hex.location = hex.location + displacement
 
     def keyboard_movement(self, key):
-        if key == "left":
+        print('moving room based on keypress:{}'.format(key))
+        if key == "left" or key == "ArrowLeft":
             self.translate(np.matrix([0,-1,1]))
-        elif key == "right":
+        elif key == "right" or key == "ArrowRight":
             self.translate(np.matrix([0,1,-1]))
-        elif key == "up":
+        elif key == "up" or key == "ArrowUp":
             self.translate(np.matrix([-1,0,1]))
-        elif key == "down":
+        elif key == "down"or key == "ArrowDown":
             self.translate(np.matrix([1,0,-1]))
         elif key == ",":
             self.rotate(1)

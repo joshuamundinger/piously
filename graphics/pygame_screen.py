@@ -127,7 +127,7 @@ class HexHover(pg.sprite.Sprite):
             surface.blit(self.image, self.target)
             surface.blit(self.hex_label, self.hex_label_rect)
 
-class PiouslyApp(object):
+class PygameScreen(object):
     def __init__(self):
         pg.init()
         pg.display.set_mode(SCREEN_SIZE)
@@ -175,6 +175,12 @@ class PiouslyApp(object):
             Button(pg.Rect((2+3*w, H-h), BUTTON_SIZE), 'end game', 'r', self.screen),
         ]
         self.buttons = self.action_buttons + [self.info, self.board_state]
+
+        self.choices = [] # needed for interoperability with js_screen
+
+    # noop method needed for interoperability with js_screen
+    def choice(self, choice_idx):
+        return None
 
     def toggle_action_buttons(self):
         # assumes all action buttons have the same disabled state
