@@ -4,7 +4,7 @@ Overall game class to track info related to turns and the board.
 from backend.board import Board
 from backend.errors import InvalidMove
 from backend.helpers import other_faction
-from backend.location import find_adjacent_hexes, location_to_axial, linked_rooms
+from backend.location import find_adjacent_hexes, location_to_axial
 from graphics.pygame_screen import PygameScreen
 from graphics.js_screen import MockScreen
 import graphics.pygame_input as pygame_input
@@ -16,6 +16,7 @@ import copy
 # - audit use of raise InvalidMove vs setting error msg directly
 # - consider refactoring so that current_action is lower level - ex click spell, click hex ect
 # - remove start_faction param from Game
+# - make starting board valid
 
 class Game(object):
     def __init__(self, start_faction):
@@ -33,20 +34,7 @@ class Game(object):
         return str(self.current_board)
 
     def is_game_over(self):
-        # for each aura'd hex in a room, check if the linked region has all seven rooms.
-        winners = []
-        for hex in self.current_board.rooms[0].hexes:
-            if hex.aura:
-                linked_names = [x.name for x in linked_rooms(self.current_board, hex)]
-                if sorted(linked_names) == sorted(['P','I','O','U','S','L','Y']):
-                    winners.append(hex.aura)
-        win_set = set(winners)
-        if not win_set:
-            return None
-        elif len(win_set) == 1:
-            return winners[0]
-        else:
-            return "Tie"
+        return self.current_board.is_game_over()
 
     def get_current_player(self):
         return self.current_board.get_current_player()
@@ -214,7 +202,6 @@ class Game(object):
             if chosen_spell == None:
                 return False
 
-            print('chosen spell {}'.format(chosen_spell))
             if chosen_spell != 'Neither':
                 a_spell.faction = other_faction(self.current_board.faction)
                 b_spell.faction = other_faction(self.current_board.faction)
@@ -239,8 +226,10 @@ class Game(object):
 
     def place_rooms(self):
         instructions = \
-            "Use < arrow keys > to move, < , . > to rotate, < n > to switch to the next room, and < enter > to end."
-        # "Arrow keys to move | , . to rotate | l to toggle | enter to end."
+            "Rooms cannot overlap, each room must be adjacent to at least two" \
+            + " other rooms, and the whole temple must be connected.\n" \
+            + "Use < arrow keys > to move, < , . > to rotate, < space >" \
+            + " to switch to the next room, < [ ] > to zoom, and < enter > to end."
 
         if len(self.screen.choices) == 0:
             self.screen.choices.append(None)
@@ -263,8 +252,7 @@ class Game(object):
             key = self.screen_input.get_keypress(self.current_board.screen)
             if key == None:
                 return False
-            elif key == "l" or key == "n":
-                print('checking toggle (l)')
+            elif key == " " or key == "l" or key == "n":
                 if self.current_board.check_for_collisions(current_room):
                     self.current_board.screen.info.error = "Avoid collisions!"
                 else:
@@ -274,7 +262,6 @@ class Game(object):
                     self.current_board.screen.info.text = \
                         "Moving room {}.\n{}".format(current_room.name, instructions)
             elif key == "return" or key == "Enter":
-                print('checking end board setup')
                 # check to see if board satisfies connectivity rules
                 if self.current_board.check_for_collisions(current_room):
                     self.current_board.screen.info.error = "Avoid collisions!"
@@ -291,7 +278,6 @@ class Game(object):
         return True
 
     def choose_first_player(self):
-        print('in chhoose first player')
         first_faction = self.screen_input.choose_from_list(
             self.screen,
             ['Light', 'Dark'],
@@ -304,7 +290,6 @@ class Game(object):
         return True
 
     def place_players(self):
-        print('in place players')
         player_spots = self.current_board.get_all_hexes()
 
         if not self.screen.choice(0):
@@ -379,7 +364,7 @@ class Game(object):
         self.current_board.game_over = True
         winning_faction = self.is_game_over()
         if winning_faction:
-            self.screen.info.text = "WINNER: {}".format(winning_faction)
+            self.screen.info.text = "WINNER: {}!".format(winning_faction)
         else:
             current_faction = self.current_board.faction
             self.screen.info.text = '{} forefits, {} wins!'.format(
@@ -440,7 +425,7 @@ class Game(object):
                 done = True
                 winning_faction = self.is_game_over()
                 if winning_faction:
-                    done_msg = "WINNER: {}".format(winning_faction)
+                    done_msg = "WINNER: {}!".format(winning_faction)
                 else:
                     current_faction = self.current_board.faction
                     done_msg = '{} forefits, {} wins!'.format(
@@ -498,42 +483,44 @@ class Game(object):
                 self.screen.data['current_action'] = 'end game'
                 self.screen.info.text = done_msg
 
-
-    # main method for js frontend
-    def do_action(self, data):
-        if self.is_game_over():
-            self.end_game()
-        else:
-            self.screen.data = data
-            self.screen.info.error = None
-
-            try:
-                self.call_action()
-            except InvalidMove as error:
-                self.screen.info.text = 'Select an option (click button or use keybinding)'
-                self.screen.info.error = 'INVALID MOVE: {}'.format(error)
-                self.screen.choices = []
-                self.screen.action_buttons_on = True
-                self.screen.data['current_action'] = 'none'
-
-        print('setting state')
-        # print('faction {}'.format(self.current_board.faction))
-        state = {
+    def get_game_state(self):
+        action = self.screen.data['current_action'] if self.screen.data else 'none'
+        return {
             'info': self.screen.info.text,
             'error': self.screen.info.error,
             'action_buttons_on': self.screen.action_buttons_on,
             'reset_on': self.screen.reset_on,
-            'current_action': self.screen.data['current_action'],
+            'current_action': action,
 
             'current_player': self.current_board.faction,
-            'actions': self.current_board.actions,
+            'actions_remaining': self.current_board.actions,
             'hexes': self.current_board.return_hex_data(),
-            'players': self.current_board.return_player_data(),
             'spells': self.current_board.return_spell_data(),
             'game_over': self.current_board.game_over,
         }
-        # print(state)
-        return state
+
+    # main method for js frontend
+    # TODO: check is_game_over at needed points in spells
+    def do_action(self, data):
+        self.screen.data = data
+        self.screen.info.error = None
+
+        try:
+            self.call_action()
+        except InvalidMove as error:
+            self.screen.info.text = 'Select an option (click button or use keybinding)'
+            self.screen.info.error = 'INVALID MOVE: {}'.format(error)
+            self.screen.choices = []
+            self.screen.action_buttons_on = True
+            self.screen.data['current_action'] = 'none'
+
+        if self.is_game_over():
+            self.end_game()
+            self.start_action = 'end game'
+            self.screen.data['current_action'] = 'end game'
+
+        print('do action return, action = {}'.format(self.screen.data['current_action']))
+        return self.get_game_state()
 
 
 if __name__ == "__main__":

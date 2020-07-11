@@ -17,6 +17,13 @@ import numpy as np
 
 # TODO: make more things allow clicking (either replace keypress or allow both)
 #  - Leap + Locksmith choose_from_list to pick what obj to move
+#  - behavior questions:
+#     - can leave shovel floating? (now=yes)
+#     - can imposter onto shovel? (now=yes)
+#     - can imposter from shovel? (now=yes)
+#     - can stonemason the shovel (now=yes)
+# - test edge cases:
+#
 
 class Spell(object):
     def __init__(self):
@@ -140,9 +147,13 @@ class Imposter(Spell):
         self.artwork = artwork
 
     def cast(self, board):
-        self._validate_spell_status_and_tap(board)
+        validated = board.screen.choice(1)
+        if not validated:
+            self._validate_spell_status_and_tap(board)
+            board.screen.choices.append(True)
+
         # get a linked room.
-        target_room = board.screen.choice(1) or choose_from_list(
+        target_room = board.screen.choice(2) or choose_from_list(
             board.screen,
             location.linked_rooms(board, self.artwork.hex),
             prompt_text = 'Choose room to copy to:',
@@ -151,9 +162,27 @@ class Imposter(Spell):
             return self._exit_cast(done=False)
         # get list of auras in artwork's room
         aura_list = [hex.aura for hex in self.artwork.hex.room.hexes if hex.aura]
-        # TODO: handle if you are copying more than one aura onto the Shovel
-        print('about to place')
-        if place_auras_on_hexes(board, self, aura_list, target_room.hexes, 2):
+
+        # deal with shovel seperately since this could mean trying to put >1 aura on 1 hex
+        if target_room.name == 'Shovel':
+            if len(aura_list) == 0:
+                pass
+            elif 'Dark' in aura_list and 'Light' in aura_list:
+                aura = choose_from_list(
+                    board.screen,
+                    ['Dark', 'Light'],
+                    prompt_text = 'Choose aura for Shovel:',
+                )
+                if aura == None:
+                    return self._exit_cast(done=False)
+                target_room.hexes[0].aura = aura
+            else:
+                # all the auras are the same (there may only be one)
+                target_room.hexes[0].aura = aura_list[0]
+            return self._exit_cast(done=True)
+        # TODO: test shovel
+
+        if place_auras_on_hexes(board, self, aura_list, target_room.hexes, 3):
             return self._exit_cast(done=True)
         return self._exit_cast(done=False)
 
@@ -172,20 +201,22 @@ class Imprint(Spell):
         current_player = board.get_current_player()
         opposing_player = board.get_opposing_player()
         opposing_neighboring_auras = []
-        for hex in location.find_adjacent_hexes(board,opposing_player.hex, return_nones=True):
+        for hex in location.find_adjacent_hexes(board, opposing_player.hex, return_nones=True):
             if hex:
                 opposing_neighboring_auras.append(hex.aura)
             else:
-                opposing_neighboring_auras.append('Skip')
-        # now put auras on neighborhood of current_player
-        current_player.hex.aura = opposing_player.hex.aura
+                opposing_neighboring_auras.append(None)
+
+        # now put auras on neighborhood of current_player, but don't copy Nones
+        if opposing_player.hex.aura:
+            current_player.hex.aura = opposing_player.hex.aura
         current_player_neighborhood = location.find_adjacent_hexes(
             board,
             current_player.hex,
             return_nones = True,
         )
         for i in range(6):
-            if opposing_neighboring_auras[i] != 'Skip' and current_player_neighborhood[i]:
+            if opposing_neighboring_auras[i] != None and current_player_neighborhood[i]:
                 current_player_neighborhood[i].aura = opposing_neighboring_auras[i]
         return self._exit_cast(done=True)
 
@@ -200,21 +231,25 @@ class Opportunist(Spell):
     def cast(self, board):
         self._validate_spell_status_and_tap(board)
 
+        rooms_names = [room.name for room in location.linked_rooms(board, self.artwork.hex)]
+
         eligible_spells = []
         for spell in board.spells:
-            if spell.faction == board.faction and spell.tapped:
-                # TODO: verify spell's room is linked to the Opportunist
-                # TODO: verify spell is not the Opportunist
+            if spell.faction == board.faction and spell.tapped and \
+                    spell != self and spell.name[0] in rooms_names:
                 eligible_spells.append(spell)
+
         spell = choose_from_list(
             board.screen,
             eligible_spells,
-            prompt_text = 'Choose spell to untap:',
-            error_text = 'There are no linked untapped spells',
+            prompt_text = 'Choose spell to reuse:',
+            error_text = 'There are no linked used spells',
             all_spells = board.spells,
         )
         if not spell:
             return self._exit_cast(done=False)
+
+        spell.untap()
 
         return self._exit_cast(done=True)
 
@@ -320,10 +355,10 @@ class Stonemason(Spell):
                 if board.check_for_collisions(moving_room):
                     finished_with_stonemason = False
                     board.screen.info.error = "Overlaps are death."
-                # TODO: CHECK CONNECTIVITY RULES
-                #  - I was able to leave the shovel floating
                 if not board.connectivity_test():
-                    board.screen.info.error = "Board fails connectivity rules."
+                    board.screen.info.error = "Board fails connectivity rules:" \
+                        + " Each room must be adjacent to at least two other rooms," \
+                        + " and the whole temple must be connected"
                     finished_with_stonemason = False
             else:
                 moving_room.keyboard_movement(key)
@@ -359,10 +394,8 @@ class Shovel(Spell):
         # temp room represents all the places that the shovel can be placed
         temp_is_placed = any([room.name == "Temp" for room in board.rooms])
         shovel_room = next((room for room in board.rooms if room.name == "Shovel"), None)
-        print('temp placed: {}, shovel placed: {}'.format(temp_is_placed, bool(shovel_room)))
         if not temp_is_placed:
             player_on_shovel = board.get_current_player().hex.room == shovel_room
-            print('on shovel', player_on_shovel)
 
             if player_on_shovel:
                 # shovel can move anywhere - get neighbors of the whole board
@@ -422,6 +455,7 @@ class Locksmith(Spell):
         # get list of hexes to move to from the board
         target_hexes = [hex for hex in board.get_all_hexes() if not(hex.occupant)]
         if target_hexes == []:
+            # this cannot happen since there are only 9 possible occupants :)
             raise InvalidMove('All hexes are occupied.')
 
         # choose a linked object to move. There should always be at least one,
@@ -617,12 +651,14 @@ def place_auras_on_hexes(board, spell, aura_list, hex_list, choice_idx):
         new_hex = choose_hexes(
             board.screen,
             [hex for hex in hex_list if not hex.aura],
-            prompt_text = "Auras to place: {}. Click a hex for aura {}".format(auras_to_place, aura),
+            prompt_text = "Auras to place: {}. Click a hex for aura {}".format(
+                ', '.join(auras_to_place),
+                aura,
+            ),
         )
         if new_hex == None:
             return spell._exit_cast(done=False)
 
-        print('setting aura for {} to {}'.format(new_hex, aura))
         new_hex.aura = aura
         auras_to_place.remove(aura)
         board.flush_aura_data()
