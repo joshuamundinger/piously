@@ -137,7 +137,7 @@ def do_action():
         }
 
     response = jsonify(response_data)
-    # response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
 def _build_cors_prelight_response():
