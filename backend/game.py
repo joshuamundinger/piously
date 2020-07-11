@@ -16,6 +16,7 @@ import copy
 # - audit use of raise InvalidMove vs setting error msg directly
 # - consider refactoring so that current_action is lower level - ex click spell, click hex ect
 # - remove start_faction param from Game
+# - make starting board valid
 
 class Game(object):
     def __init__(self, start_faction):

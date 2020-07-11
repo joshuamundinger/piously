@@ -17,8 +17,13 @@ import numpy as np
 
 # TODO: make more things allow clicking (either replace keypress or allow both)
 #  - Leap + Locksmith choose_from_list to pick what obj to move
-#  - behavior questions: can leave shovel floating? (now=yes), can imposter onto
-#    shovel? (now=yes), can imposter from shovel? (now=yes)
+#  - behavior questions:
+#     - can leave shovel floating? (now=yes)
+#     - can imposter onto shovel? (now=yes)
+#     - can imposter from shovel? (now=yes)
+#     - can stonemason the shovel (now=yes)
+# - test edge cases:
+#
 
 class Spell(object):
     def __init__(self):
@@ -225,7 +230,6 @@ class Opportunist(Spell):
 
     def cast(self, board):
         self._validate_spell_status_and_tap(board)
-        print('casting op')
 
         rooms_names = [room.name for room in location.linked_rooms(board, self.artwork.hex)]
 
@@ -235,12 +239,11 @@ class Opportunist(Spell):
                     spell != self and spell.name[0] in rooms_names:
                 eligible_spells.append(spell)
 
-        print('eligible spells', eligible_spells)
         spell = choose_from_list(
             board.screen,
             eligible_spells,
-            prompt_text = 'Choose spell to untap:',
-            error_text = 'There are no linked untapped spells',
+            prompt_text = 'Choose spell to reuse:',
+            error_text = 'There are no linked used spells',
             all_spells = board.spells,
         )
         if not spell:
@@ -352,10 +355,10 @@ class Stonemason(Spell):
                 if board.check_for_collisions(moving_room):
                     finished_with_stonemason = False
                     board.screen.info.error = "Overlaps are death."
-                # TODO: CHECK CONNECTIVITY RULES
-                #  - I was able to leave the shovel floating
                 if not board.connectivity_test():
-                    board.screen.info.error = "Board fails connectivity rules."
+                    board.screen.info.error = "Board fails connectivity rules:" \
+                        + " Each room must be adjacent to at least two other rooms," \
+                        + " and the whole temple must be connected"
                     finished_with_stonemason = False
             else:
                 moving_room.keyboard_movement(key)
