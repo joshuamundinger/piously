@@ -96,7 +96,7 @@ def end_game(game_id):
         return 'Ended game {}'.format(game_id)
     return 'ERROR: No game "{}"'.format(game_id)
 
-@app.route('/do_action', methods=['POST'])
+@app.route('/do_action', methods=['POST', 'OPTIONS'])
 def do_action():
     if request.method == "OPTIONS": # CORS preflight
         return _build_cors_prelight_response()
@@ -122,9 +122,7 @@ def do_action():
         if data['current_action'] in ['start', 'none']:
             data['current_action'] = game.start_action
 
-        print('in app doing action')
         response_data = game.do_action(data)
-        print('in app current_action', response_data['current_action'])
 
         if response_data['current_action'] == 'end game':
             print('app deleting game + saving ENDGAME')
