@@ -15,7 +15,7 @@ import numpy as np
 from backend.artwork import Artwork
 from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
-from backend.location import neighboring_region, find_adjacent_rooms, hexes_colocated
+from backend.location import neighboring_region, find_adjacent_rooms, hexes_colocated, linked_rooms
 from backend.player import Player
 from backend.room import Room
 from backend.spell import (
@@ -183,6 +183,25 @@ class Board(object):
 
         return eligible_spells
 
+    def is_game_over(self):
+        # for each aura'd hex in a room, check if the linked region has all seven rooms.
+        print('checking game over')
+        winners = []
+        for hex in self.rooms[0].hexes:
+            if hex.aura:
+                linked_names = [x.name for x in linked_rooms(self, hex)]
+                print(hex, linked_names)
+                if sorted(linked_names) == sorted(['P','I','O','U','S','L','Y']):
+                    winners.append(hex.aura)
+        win_set = set(winners)
+        print('winners', win_set)
+        if not win_set:
+            return None
+        elif len(win_set) == 1:
+            return winners[0]
+        else:
+            return "Tie"
+
     ########################
     # board layout methods #
     ########################
@@ -278,18 +297,22 @@ class Board(object):
         hex_maps = []
         for room in self.rooms:
             for hex in room.hexes:
-                if isinstance(hex.occupant, Player):
-                    color = hex.occupant.faction
-                elif isinstance(hex.occupant, Artwork):
-                    color = hex.occupant.color
+                if hex.occupant:
+                    type = hex.occupant.get_type()
+                    color = hex.occupant.get_color()
+                    name = str(hex.occupant)
                 else:
+                    type = None
                     color = None
+                    name = None
 
                 hex_maps.append({
                     'x': int(hex.location.flat[0]),
                     'y': int(hex.location.flat[1]),
                     'room': hex.room.name,
                     'obj_color': color,
+                    'obj_type': type,
+                    'obj_name': name,
                     'aura_color': hex.aura,
                     'active': not self.game_over and hex in self.screen.active_hexes,
                 })
@@ -304,7 +327,8 @@ class Board(object):
                 'description': spell.description,
                 'faction': spell.faction,
                 'tapped': spell.tapped,
-                'artwork': bool(spell.artwork and not spell.artwork.hex),
+                'has_artwork': bool(spell.artwork),
+                'unplaced_artwork': bool(spell.artwork and not spell.artwork.hex),
                 'active': not self.game_over and spell in active_spells,
             })
         return data
@@ -331,17 +355,6 @@ class Board(object):
                     'faction': player.faction,
                 })
         self.screen.player_data = data
-
-    def return_player_data(self):
-        data = []
-        for player in self.players.values():
-            if player.hex:
-                data.append({
-                    'x': int(player.hex.location.flat[0]),
-                    'y': int(player.hex.location.flat[1]),
-                    'faction': player.faction,
-                })
-        return data
 
     def flush_artwork_data(self):
         data = []

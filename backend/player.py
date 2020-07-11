@@ -11,3 +11,9 @@ class Player(object):
         return '{faction} player'.format(
             faction = self.faction,
         )
+
+    def get_color(self):
+        return self.faction
+
+    def get_type(self):
+        return 'player'

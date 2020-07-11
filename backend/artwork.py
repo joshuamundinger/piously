@@ -9,8 +9,10 @@ class Artwork(object):
         self.faction = None
 
     def __str__(self):
-        location = 'Not placed'
-        if self.hex != None:
-            location = self.hex.location
-
         return "{color} artwork".format(color = self.color)
+
+    def get_color(self):
+        return self.color
+
+    def get_type(self):
+        return 'art'
