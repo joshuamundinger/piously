@@ -8,24 +8,20 @@ import dark_player from './images/dark_player.png';
 import GameLayout from './GameLayout';
 import SpellList from './SpellList';
 
-// TODO: js improvements
+// js TODOs:
 // before next deploy
-//  - rename immense-hamlet-87320 to piously-backend (here + in heroku)
 //  - update host
-// critical:
-//  - error handling based on response code for both fetches
 // bugs:
 //  - cannot use enter to select button while setting up board
 // nice to have:
 //  - font size based on hex size
 //  - room being moved renders on top
+//  - make modal always narrower than app
 //  - run backend on same heroku app
 //  - allow tab + enter to select hexagons
-//  - make spells better
-//     - [done] show room color
-//     - [done] indicate artwork vs bewichment
-//     - [done] add full description + icon
-//     - [done] sort by faction
+//     - probably requires forking react-hexgrid
+//     // document.querySelectorAll('svg .game .hexactive').forEach(x => x.tabIndex = 0);
+//     // document.querySelectorAll('svg .game .hexdisabled').forEach(x => x.tabIndex = -1);
 //  - convert some things to drag input:
 //     - rearranging auras
 //     - drop spells
@@ -34,18 +30,14 @@ import SpellList from './SpellList';
 //  - set the drag image
 //  - sounds when moves are done
 // code quality:
+//  - stop sending both click_spell and click_spell_idx
+//  - make handlers into arrow fcts and remove bind calls
+//  - be consistent about fct names - camel vs underscore, on vs handle
 //  - consolidate spell descriptions between here and the backend
 //  - replace setInterval with a web socket
 //  - remove console.logs
-//  - clean up action_buttons_on
-//     - maybe rename it buttons_enabled
-//     - is it the same as action === 'none'?
-//  - remove unused code (here + in GameLayout)
-//     - commented out code
-//     - drag+drop related things
-//     - pattern / fill related things
 
-// const HOST = 'https://immense-hamlet-87320.herokuapp.com';
+// const HOST = 'https://piously-backend.herokuapp.com/';
 const HOST = 'http://localhost:3000';
 
 class App extends Component {
@@ -68,7 +60,6 @@ class App extends Component {
       actions_remaining: null,
       current_action: null,
       current_player: null,
-      action_buttons_on: false,
       reset_on: false,
       error: null,
       info: null,
@@ -76,27 +67,6 @@ class App extends Component {
   }
 
   componentDidMount() {
-    // console.log('mounted!');
-
-    // set game_id and enabled players by parsing the url
-    // const url = window.location;
-    // const url_parts = url.search.substring(1).split('&');
-    // let url_params = {};
-    // for (var i = 0; i < url_parts.length; i++) {
-  	// 	var pair = url_parts[i].split('=');
-  	// 	url_params[pair[0]] = decodeURIComponent(pair[1]);
-  	// }
-    // this.setState({
-    //   enabled: {
-    //     'Light': url_params.Light === 'true',
-    //     'Dark': url_params.Dark === 'true',
-    //   },
-    //   game_id: url_params.game_id,
-    // });
-    // const storedState = sessionStorage.getItem('state');
-    // console.log(storedState);
-    // const state = JSON.parse(storedState);
-    // console.log(state);
     this.setState(JSON.parse(sessionStorage.getItem('state')));
 
     // listen for keybindings
@@ -109,22 +79,6 @@ class App extends Component {
 
   componentWillUnmount() {
     clearInterval(this.update_interval);
-  }
-
-  // componentDidUpdate() {
-  //   console.log('update!');
-  // }
-
-  actions_on() {
-    // return this.state.action_buttons_on;
-    return this.state.current_action === 'none';
-  }
-
-  updateCurrentAction(action) {
-    if (this.actions_on() || (this.state.reset_on && action === 'reset turn')) {
-      this.setState({current_action: action});
-      this.fetchBoard({current_action: action});
-    }
   }
 
   tick() {
@@ -154,7 +108,6 @@ class App extends Component {
   // function to send changes to current_action and get data from the backend
   async fetchBoard(data, user_initiated=true) {
     if (user_initiated) {
-      // console.log('resetting ticks to 0');
       this.tick_cnt = 0;
     }
 
@@ -177,25 +130,20 @@ class App extends Component {
         body: JSON.stringify(data)
       });
 
-
       const response_data = await response.json();
-
-      if (response.status !== 200){
-        console.log('non-200 status, clearing interval', response.status);
-        clearInterval(this.update_interval);
-        this.update_interval = null;
-      }
-
-      // console.log(response_data)
       this.setState(response_data);
-      clearInterval(this.update_interval);
 
       if (response_data.backend_error) {
         console.log('backend error, clearing interval');
         console.log(response_data.backend_error);
         clearInterval(this.update_interval);
         this.update_interval = null;
+      } else if (response.status !== 200){
+        console.log('non-200 status, clearing interval', response.status);
+        clearInterval(this.update_interval);
+        this.update_interval = null;
       }
+
     } catch (e) {
       console.log('in fetch catch, clearing interval');
       this.setState({error: 'Internal Server Error :('})
@@ -204,7 +152,17 @@ class App extends Component {
     }
   };
 
-  // TODO: make into arrow fcts and remove bind calls
+  actions_on() {
+    return this.state.current_action === 'none';
+  }
+
+  updateCurrentAction(action) {
+    if (this.actions_on() || (this.state.reset_on && action === 'reset turn')) {
+      this.setState({current_action: action});
+      this.fetchBoard({current_action: action});
+    }
+  }
+
   handleBless() {
     this.updateCurrentAction('bless');
   }
@@ -229,7 +187,12 @@ class App extends Component {
   handleEndGame() {
     this.fetchBoard({current_action: 'maybe end game'});
   }
-  handleStartGame(light_enabled, dark_enabled, game_id) {
+  handleStartGame(
+    event=null,
+    light_enabled=this.state.enabled.Light,
+    dark_enabled=this.state.enabled.Dark,
+    game_id=this.state.game_id,
+  ) {
     const state = {
       enabled: {
         'Light': light_enabled,
@@ -237,14 +200,12 @@ class App extends Component {
       },
       game_id: game_id,
     }
+    sessionStorage.setItem('state', JSON.stringify(state));
 
     this.setState(
       state,
       () => {this.fetchBoard({current_action: 'start'}, false);} // false here to override enabled players
     );
-    sessionStorage.setItem('state', JSON.stringify(state));
-    // console.log('start', this.state.game_id)
-    // this.fetchBoard({current_action: 'start'}, false);
   }
   handleNewGame() {
     sessionStorage.clear();
@@ -261,12 +222,11 @@ class App extends Component {
       return;
     }
 
+    // restart autorefresh if it is off
     if (!this.update_interval) {
-      // console.log('setting interval, ticks=0')
       this.tick_cnt = 0;
       this.update_interval = setInterval(this.tick.bind(this), this.state.auto_refresh_ms);
     }
-
 
     if (e.key === '[') {
         // zoom out board (hexes get smaller)
@@ -291,7 +251,6 @@ class App extends Component {
         this.handleResetTurn()
       }
     } else {
-      // TODO: clean up sending both here
       const data = {
         choice_idx: e.key,
         current_keypress: e.key,
@@ -301,7 +260,7 @@ class App extends Component {
     }
   };
 
-  // function to calculate board size from hexes
+  // calculate board boundaries from hexes
   grid_max_min() {
     // don't include temp hexes in grid size
     const filteredHexes = this.state.hexes.filter(h => h.room !== 'Temp');
@@ -327,14 +286,13 @@ class App extends Component {
     }
   }
 
+  // helpers to detemine with player(s) are enabled
   play_enabled() {
     return this.state.enabled[this.state.current_player];
   }
-
   view_only() {
     return !this.state.enabled.Dark && !this.state.enabled.Light;
   }
-
   both_enabled() {
     return this.state.enabled.Dark && this.state.enabled.Light;
   }
@@ -361,12 +319,10 @@ class App extends Component {
       this.modal_off();
     }
   }
-
   modal_on() {
     let modal = document.querySelector(".modal-background");
     modal.style.display = "block";
   }
-
   modal_off() {
     let modal = document.querySelector(".modal-background");
     modal.style.display = "none";
@@ -378,8 +334,6 @@ class App extends Component {
     } else if (this.state.current_player) {
       if (this.play_enabled()){
         return '';
-      // } else if (this.view_only()) {
-      //   return 'This session is view only. Go back to the form and choose a faction to enable play. Board will auto-refresh.';
       } else if (this.update_interval) {
         return 'It is not your turn, please wait. Board will auto-refresh.';
       } else {
@@ -393,18 +347,18 @@ class App extends Component {
   get_buttons() {
     const bstate = !this.actions_on();
     const rstate = !this.state.reset_on;
-    if (this.state.game_over) {
+    if (this.state.game_id && !this.state.current_player) {
+      return (
+        <div className='buttons'>
+          <button onClick={this.handleStartGame.bind(this)}>Start game</button>
+        </div>
+      );
+    } else if (this.state.game_over) {
       return (
         <div className='buttons'>
           <button onClick={this.handleNewGame.bind(this)}>New game</button>
         </div>
       );
-    // } else if (this.state.game_id && !this.state.current_player) {
-    //   return (
-    //     <div className='buttons'>
-    //       <button onClick={this.handleStartGame.bind(this)}>Start game</button>
-    //     </div>
-    //   );
     } else {
       return (
         <><div className='buttons1'>
@@ -426,19 +380,18 @@ class App extends Component {
 
   render_game() {
     // Calculate board size
-    const { v_min, v_max, h_min, h_max } = this.grid_max_min()
-    const width = '100%' //600 //h_max - h_min + this.state.grid_padding;
-    const height = '100%' //v_max - v_min + this.state.grid_padding;
+    const { v_min, v_max, h_min, h_max } = this.grid_max_min();
+    const width = '100%';
+    const height = '100%';
     const center_x = (h_max + h_min)/2;
     const center_y = (v_max + v_min)/2;
-    const view_box='0 0 80 50' //`0 0 ${width/10} ${height/10}`
+    const view_box='0 0 80 50';
 
     // Fill in text
     let instructions_text = this.state.info ? this.state.info.split("\n") : [];
-    if (instructions_text.length > 1) {
+    if (instructions_text.length > 0) { // bold first line of instructions
       instructions_text[0] = <b>{instructions_text[0]}</b>
     }
-
     const action_text =
       this.state.actions_remaining === null ?
         '' :
@@ -460,16 +413,6 @@ class App extends Component {
     }
     const game_and_player_text = this.state.game_id ?
       <p>Game [ <span className='mono'>{this.state.game_id}</span> ] · {enabled_players}</p> : null;
-
-
-    // document.querySelectorAll('svg .game .hexactive').forEach(x => x.tabIndex = 0);
-    // document.querySelectorAll('svg .game .hexdisabled').forEach(x => x.tabIndex = -1);
-
-    // TODO: decide on heading -- right now need to add padding to intro if using this
-    // <div className="name-and-logo">
-    //   <img className="App-logo" alt="logo" src={this.player_img()}/>
-    //   <h1>piously</h1>
-    // </div>
 
     return (
       <div className="App">

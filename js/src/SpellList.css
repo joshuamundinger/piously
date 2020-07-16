@@ -9,40 +9,24 @@
 .spell-detail {
   margin-top: 4px;
   text-align: center;
-  /* margin-left: 10%; margin-right: 10% */
-  /* border: 1px solid #888; */
-  /* height: 100%; */
-  /* display: flex; */
 }
 .spell-img {
   height: 60px;
   margin-top: 2px;
-  /* margin-bottom: 0px; */
-  /* float: left; */
-  /* margin-right: 4px; */
   border: 1px solid #888;
 }
 .spell-detail p {
   margin: 0px 8px;
-  /* margin-top: 2px; */
   text-align: left;
-  /* display: flex;
-  flex-direction: column; */
   color: #333;
-  /* text-indent: 4px; */
-  /* margin-left: 8px; */
 }
 .spell-detail .text-center {
-  /* margin: 0px; */
   display: block;
   text-align: center;
   color: #333;
-  /* text-indent: 4px; */
   margin-top: 4px;
-  /* margin-bottom: 32px; */
 }
 table.spellTable {
-  /* margin: 1em; */
   width: 100%;
   text-align: center;
   font-size: 12px;
@@ -73,11 +57,9 @@ table.spellTable tbody tr {
   /* line-height: 8px; */
 }
 table.spellTable tbody tr:not(:last-child){
-  /* color: red; */
   border-bottom: 0.1px solid #ccc;
 }
 table.spellTable tbody tr:last-child {
-  /* color: red; */
   border-bottom: 1px solid #888;
 }
 table.spellTable tbody tr.activePlayer {
@@ -103,7 +85,6 @@ table.spellTable tbody tr.disabled{
   /* font-weight: normal; */
 }
 table.spellTable tbody td:nth-child(1) {
-  /* opacity: 0.9; */
   text-shadow: 0px 0px 2px white, 0px 0px 4px white;
   text-align: right;
 }

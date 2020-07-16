@@ -20,7 +20,6 @@ import none from './images/none.png';
 class SpellDetail extends React.Component {
   render() {
     let info = null;
-    // console.log(`spell is .${this.props.spell}.`)
     switch (this.props.spell) {
       case 'Priestess':
         info = <><img className="spell-img" alt="priestess" src={priestess} />
@@ -104,9 +103,8 @@ class SpellList extends Component {
   }
 
   onClick(event) {
-    // console.log(`spell before click was ${this.state.current_spell}`)
     const index = parseInt(event.currentTarget.getAttribute('idx'));
-    const tidx = parseInt(event.currentTarget.getAttribute('tabIndex'));
+    // const tidx = parseInt(event.currentTarget.getAttribute('tabIndex'));
     const name = event.currentTarget.getAttribute('name');
     const art_unplaced = event.currentTarget.getAttribute('art_unplaced');
     const classes = event.currentTarget.className.split(' ');
@@ -114,7 +112,6 @@ class SpellList extends Component {
     this.setState({ current_spell: name });
 
     if (classes[0] === 'active') {
-      // console.log('active click')
       let data = {
         current_action: 'cast spell',
         click_spell: name,
@@ -131,29 +128,16 @@ class SpellList extends Component {
         return;
       };
 
-      // console.log(data)
       this.props.onAction(data);
     };
   }
 
   onMouseEnter(event, source) {
-    // console.log(`spell before click was ${this.state.current_spell}`)
-    // const index = parseInt(event.currentTarget.getAttribute('idx'));
     const name = event.currentTarget.getAttribute('name');
-    // const state = event.currentTarget.className;
-    // console.log(`entered ${name} (i=${index}) ${state}`)
     this.setState({ hover_spell: name });
-    // const hex = source.state.hex
-    // console.log(`enter ${hex.q} ${hex.r} ${hex.s}`)
-    // this.setState({ current_hex: hex });
   }
 
   onMouseLeave(event, source) {
-    // console.log(`spell before click was ${this.state.current_spell}`)
-    // const index = parseInt(event.currentTarget.getAttribute('idx'));
-    // const name = event.currentTarget.getAttribute('name');
-    // const state = event.currentTarget.className;
-    // console.log(`left ${name} (i=${index}) ${state}`)
     this.setState({ hover_spell: null });
   }
 
@@ -162,21 +146,6 @@ class SpellList extends Component {
         this.onClick(e);
     }
   };
-
-  spellSort(a, b) {
-    // order is by faction (Dark, Light, none) then by name (PIOUSLY order)
-    if (a.faction === b.faction) {
-      if (a.idx < b.idx) {
-        return -1
-      }
-      return 1
-    } else if (a.faction === 'Dark') {
-      return -1;
-    } else if (a.faction === 'Light' && b.faction === null) {
-      return -1;
-    }
-    return 1;
-  }
 
   spellHashToRow(spell) {
     return (
@@ -214,11 +183,9 @@ class SpellList extends Component {
       art_color: s.name[0],
       faction: s.faction,
     }));
-    // spells.sort(this.spellSort)
 
     return (
       <>
-
       <table className="spellTable" rules="groups">
       <thead>
         <tr>

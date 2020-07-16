@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import light_player from './images/light_player.png';
-import dark_player from './images/dark_player.png';
 import board_img from './images/example_board.png';
 
 class Rules extends Component {
@@ -127,6 +126,7 @@ class Intro extends Component {
     }
 
     this.props.onStart(
+      null,
       this.state.Light,
       this.state.Dark,
       this.state.game_id,
