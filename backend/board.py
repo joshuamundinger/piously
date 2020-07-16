@@ -47,18 +47,16 @@ class Board(object):
         }
         self.game_over = False
 
-        # TODO: make artworks be named after spells so str() gives spell name
-        # (nice for error msg when artwork is not on board), but don't mess up color
-        # fronted code -- maybe can consolidate room name, spell name, and artwork color
-        # IDEA: what if each Room inits it's spells and each a_spell inits it's artworks and neither are stored directly on board
+        # IDEA: what if each Room inits it's spells and each a_spell inits its
+        # artworks and neither are stored directly on board
         self.artworks = artworks or [
-            Artwork('Pink'),
-            Artwork('Indigo'),
-            Artwork('Orange'),
-            Artwork('Umber'),
-            Artwork('Sapphire'),
-            Artwork('Lime'),
-            Artwork('Yellow'),
+            Artwork('Priestess'),
+            Artwork('Imposter'),
+            Artwork('Opportunist'),
+            Artwork('Usurper'),
+            Artwork('Stonemason'),
+            Artwork('Locksmith'),
+            Artwork('Yeoman'),
         ]
         self.spells = spells or [
             Priestess(self.artworks[0]),
@@ -77,43 +75,43 @@ class Board(object):
             Yoke(),
         ]
         self.rooms = rooms or [
-            Room('P', np.matrix([5,-5,0]),
+            Room('Pink', np.matrix([3,-4,1]),
                 [   np.matrix([-1,0,1]),
                     np.matrix([-1,1,0]),
                     np.matrix([1,0,-1])
                 ], self.spells[0], self.spells[1]
             ),
-            Room('I', np.matrix([3,-3,0]),
+            Room('Indigo', np.matrix([3,-3,0]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([2,0,-2]),
                     np.matrix([3,0,-3])
                 ], self.spells[2], self.spells[3]
             ),
-            Room('O', np.matrix([2,0,-2]),
-                [   np.matrix([0,-1,1]),
-                    np.matrix([1,-1,0]),
-                    np.matrix([1,-2,1])
+            Room('Orange', np.matrix([2,-2,0]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([1,0,-1]),
+                    np.matrix([1,1,-2])
                 ],  self.spells[4], self.spells[5]
             ),
-            Room('U', np.matrix([4,-2,-2]),
-                [   np.matrix([1,0,-1]),
-                    np.matrix([1,1,-2]),
-                    np.matrix([0,2,-2])
+            Room('Umber', np.matrix([4,-2,-2]),
+                [   np.matrix([0,1,-1]),
+                    np.matrix([-1,2,-1]),
+                    np.matrix([-2,2,0])
                 ],  self.spells[6],self.spells[7]
             ),
-            Room('S', np.matrix([2,1,-3]),
+            Room('Sapphire', np.matrix([0,0,0]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([1,1,-2]),
                     np.matrix([2,1,-3])
                 ],  self.spells[8], self.spells[9]
             ),
-            Room('L', np.matrix([0,2,-2]),
+            Room('Lime', np.matrix([1,2,-3]),
                 [   np.matrix([1,0,-1]),
                     np.matrix([2,0,-2]),
                     np.matrix([2,1,-3])
                 ], self.spells[10], self.spells[11]
             ),
-            Room('Y', np.matrix([1,4,-5]),
+            Room('Yellow', np.matrix([0,3,-3]),
                 [   np.matrix([0,-1,1]),
                     np.matrix([-1,1,0]),
                     np.matrix([1,0,-1])
@@ -188,8 +186,8 @@ class Board(object):
         winners = []
         for hex in self.rooms[0].hexes:
             if hex.aura:
-                linked_names = [x.name for x in linked_rooms(self, hex)]
-                if sorted(linked_names) == sorted(['P','I','O','U','S','L','Y']):
+                linked = linked_rooms(self, hex, include_shovel=False)
+                if len(linked) == 7:
                     winners.append(hex.aura)
         win_set = set(winners)
         if not win_set:
@@ -220,15 +218,13 @@ class Board(object):
         return neighboring_rooms
 
     def connectivity_test(self):
-        connectivity = True
-        piously = ['P','I','O','U','S','L','Y']
-        piously_rooms = [room for room in self.rooms if room.name in piously]
-        for current_room in piously_rooms:
-            piously_neighbors = [ room for room in find_adjacent_rooms(self,current_room) if room.name in piously]
-            if len(piously_neighbors) < 2:
-                connectivity = False
-        # TODO: check board is connected
-        return connectivity
+        for room in self.rooms:
+            neighbors = find_adjacent_rooms(self, room, include_shovel=False)
+            if room.name == 'Shovel' and len(neighbors) < 1:
+                return False
+            elif room.name != 'Shovel' and len(neighbors) < 2:
+                return False
+        return True
 
     #returns whether room collides with another room in the board
     def check_for_collisions(self, room):
@@ -254,7 +250,8 @@ class Board(object):
         self.faction = other_faction(self.faction)
 
     def move_object(self, occupant, from_hex=None, to_hex=None):
-            # order matters here, updating occupant.hex last makes it ok for from_hex to be occupant.hex initially
+            # order matters here, updating occupant.hex last makes it ok for
+            #from_hex to be occupant.hex initially
             if from_hex != None:
                 from_hex.occupant = None
             if to_hex != None:
@@ -286,7 +283,7 @@ class Board(object):
             hex_maps.append({
                 'x': hex.location.flat[0],
                 'y': hex.location.flat[1],
-                'room': hex.room.name,
+                'room': hex.room.color_name(),
             })
         self.screen.make_map(hex_maps)
 
@@ -307,6 +304,7 @@ class Board(object):
                     'x': int(hex.location.flat[0]),
                     'y': int(hex.location.flat[1]),
                     'room': hex.room.name,
+                    'room_color': hex.room.color_name(),
                     'obj_color': color,
                     'obj_type': type,
                     'obj_name': name,

@@ -177,6 +177,7 @@ class PygameScreen(object):
         self.buttons = self.action_buttons + [self.info, self.board_state]
 
         self.choices = [] # needed for interoperability with js_screen
+        self.data = {} # needed for interoperability with js_screen
 
     # noop method needed for interoperability with js_screen
     def choice(self, choice_idx):

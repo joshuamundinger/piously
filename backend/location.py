@@ -112,14 +112,15 @@ def linked_hexes(board, starting_hex):
 def adjacent_linked_region(board, starting_hex):
     return linked_search(board, starting_hex, return_boundary=True)
 
-def linked_rooms(board, starting_hex):
-    linked_hex = linked_hexes(board,starting_hex)
+def linked_rooms(board, starting_hex, include_shovel=True):
+    linked_hex = linked_hexes(board, starting_hex)
     linked_room = []
     for room in board.rooms:
         for test_hex in room.hexes:
             if test_hex in linked_hex:
-                linked_room.append(room)
-                break
+                if include_shovel or room.name != 'Shovel':
+                    linked_room.append(room)
+                    break
     return linked_room
 
 # given hex_list, returns the list of all hexes adjacent to an element of
@@ -136,13 +137,14 @@ def neighboring_region(board, hex_list):
 def find_room(board, hex):
     return [room for room in board.rooms if hex in room.hexes][0]
 
-def find_adjacent_rooms(board, starting_room):
+def find_adjacent_rooms(board, starting_room, include_shovel=True):
     adjacent_rooms = []
     for hex in starting_room.hexes:
         # find the rooms which are next to hex
         for room in [find_room(board, test_hex) for test_hex in find_adjacent_hexes(board, hex)]:
             if not( room == starting_room or room in adjacent_rooms):
-                adjacent_rooms.append(room)
+                if include_shovel or room.name != 'Shovel':
+                    adjacent_rooms.append(room)
     return adjacent_rooms
 
 # return locations adjacent to entries of hex_list which do not have hexes

@@ -1,21 +1,69 @@
-/* Basic game settings */
-svg .grid {
-
+/*******************/
+/* App Body Layout */
+/*******************/
+.board {
+  background: white;
+  margin: 4px;
+  margin-top: 0px;
+  border: 1px solid #888;
+}
+.spells {
+  background: #eee;
+  margin: 4px;
+  margin-left: 0px;
+  /* border: 1px solid #888; */
+}
+.buttons {
+  margin: 4px;
+}
+.buttons1 {
+  margin: 4px;
+  margin-bottom: 2px;
+  /* margin: 0px 4px; */
+  display: flex;
+}
+.buttons2 {
+  margin: 4px;
+  margin-top: 2px;
+  display: flex;
+}
+.button-label {
+  /* border: 1px solid #888; */
+  color: #eee;
+  background-color: #333;
+  padding: 0px 5px;
+  margin-right: 1px;
+  line-height: 18px;
+  width: 82px;
+  text-align: right;
 }
 
+/*****************/
+/* Game settings */
+/*****************/
 svg .game {
   fill: red; /* should get overwritten */
   stroke-width: 0.1;
   transition: fill-opacity .2s;
-
-  /* align center game with center of parent */
-	transform: translate(50%, 50%);
+	transform: translate(50%, 50%); /* align center game with center of parent */
 }
 svg .game :hover {
   fill-opacity: 0.6;
 }
+svg .game :focus {
+  outline: none; /* disable chrome's giant blue border */
+}
+svg .game .hexactive polygon {
+  stroke: #888; /* outline clickable hexes in grey */
+}
+svg .game .hexactive:focus polygon {
+  stroke-width: 0.2;
+  stroke: #333; /* outline clickable + focused hexes in dark grey */
+}
 
-/* Text color + other text settings */
+/*****************/
+/* Text settings */
+/*****************/
 svg .game text {
   fill: #fff;
   fill-opacity: 1;
@@ -29,50 +77,88 @@ svg .hoverText {
   user-select: none;
 
   /* align center of hover text at center of parent a bit down from top */
-  text-anchor: middle;
-  transform: translate(50%, 2em);
+  /* text-anchor: middle; */
+  /* transform: translate(50%, 1em); */
+
+  /* align hover text a bit in from the top left corner of the grid */
+  transform: translate(0.5em, 1.5em);
+}
+svg .hoverText.background {
+  stroke: white;
+  stroke-width: 0.2px;
 }
 
-/* Hex + circle specific settings */
-svg .game polygon {
-  stroke: #fff;
-}
+/************************/
+/* Aura + Player Colors */
+/************************/
 svg .game circle {
   stroke: #fff;
-  /* stroke-width: 0.2; */
   fill-opacity: 1;
 }
-svg .game circle.light {
+svg .game circle.aura.Light,
+svg .game polygon.player.Light {
   stroke: #333;
+  fill: #fff;
 }
-/* svg .game .blocked {
-    fill: #465880;
+svg .game circle.aura.Dark,
+svg .game polygon.player.Dark {
+  stroke: #fff;
+  fill: #333;
 }
-svg .game .blocked:hover {
-    fill: #53699a;
-} */
 
-/* Room Colors */
-svg .game .P {
+/********************************/
+/*    Room + Artwork Colors     */
+/********************************/
+/*   NOTE: also applies color   */
+/* gradients to the spell table */
+/********************************/
+
+svg .game polygon {
+  stroke: #fff; /* white outline on hexes */
+}
+svg .game .P,
+table.spellTable tbody .P td:first-child {
   fill: #faa7f3;
+  background: rgb(250,167,243);
+  background: linear-gradient(90deg, rgba(250,167,243,1) 0%, rgba(238,238,238,0) 90%);
+
 }
-svg .game .I {
+svg .game .I,
+table.spellTable tbody .I td:nth-child(1) {
   fill: #8372ab;
+  background: rgb(131,114,171);
+  background: linear-gradient(90deg, rgba(131,114,171,1) 0%, rgba(238,238,238,0) 90%);
+
 }
-svg .game .O {
+svg .game .O,
+table.spellTable tbody .O td:nth-child(1) {
   fill: #ffad3b;
+  background: rgb(255,173,59);
+  background: linear-gradient(90deg, rgba(255,173,59,1) 0%, rgba(238,238,238,0) 90%);
 }
-svg .game .U {
+svg .game .U,
+table.spellTable tbody .U td:nth-child(1) {
   fill: #997443;
+  background: rgb(153,116,67);
+  background: linear-gradient(90deg, rgba(153,116,67,1) 0%, rgba(238,238,238,0) 90%);
 }
-svg .game .S {
+svg .game .S,
+table.spellTable tbody .S td:nth-child(1) {
   fill: #56c6cc;
+  background: rgb(86,198,204);
+  background: linear-gradient(90deg, rgba(86,198,204,1) 0%, rgba(238,238,238,0) 90%);
 }
-svg .game .L {
+svg .game .L,
+table.spellTable tbody .L td:nth-child(1) {
   fill: #62c248;
+  background: rgb(98,194,72);
+  background: linear-gradient(90deg, rgba(98,194,72,1) 0%, rgba(238,238,238,0) 90%);
 }
-svg .game .Y {
+svg .game .Y,
+table.spellTable tbody .Y td:nth-child(1) {
   fill: #e8dd61;
+  background: rgb(232,221,97);
+  background: linear-gradient(90deg, rgba(232,221,97,1) 0%, rgba(238,238,238,0) 90%);
 }
 svg .game .Shovel {
   fill: #d1b982;
@@ -81,46 +167,42 @@ svg .game .Temp {
   fill: #8c8c8c;
 }
 
-/* Spell Table Formatting */
-table.spellTable {
-  width: 100%;
-  text-align: center;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-table.spellTable td, table.spellTable th {
-  /* border: 1px solid #fff; */
-  padding: 5px 4px;
-}
-table.spellTable thead {
-  background: #333;
-  border: 1px solid #333;
-
-}
-table.spellTable thead th {
-  font-weight: normal;
-  color: #eee;
-}
-table.spellTable tbody tr {
-  background: #fff;
+/*********************/
+/* Button Formatting */
+/*********************/
+button {
+  /* box-sizing: border-box; */
+  font-size: 12px;
   color: #333;
+  background: #fff;
   border: 1px solid #888;
+  /* border-radius: 2px; */
+  margin: 0px 1px;
+  /* display: flex; */
+  justify-content: space-between;
+  /* flex-direction: row; */
+  flex: 1;
+  /* width: calc(25% - 2px);*/ /* 4 buttons across with room for padding */
 }
-table.spellTable tbody td:nth-child(1),
-table.spellTable tbody td:nth-child(2){
-  text-align: left;
+form button {
+  display: inline-block;
+  margin-left: auto;
+  margin-right: auto;
 }
-table.spellTable tbody tr:hover{
+button:first-child {
+  margin-left: 0px;
+}
+button:last-child {
+  margin-right: 0px;
+}
+button:hover {
   background: #ddd;
-  /* opacity: 0.6; */
 }
-table.spellTable tbody tr.disabled{
+button:disabled {
   background: #eee;
-  /* border: 1px solid red; */
-
-  /* border: 1px solid red; */
   opacity: 0.7;
 }
-/* table.spellTable tr:nth-child(even) {
-  background: #fff;
-} */
+button:focus {
+  background: #ddd;
+  outline-color: #333;
+}

@@ -26,6 +26,12 @@ class Room(object):
     def __str__(self):
         return self.name
 
+    def color_name(self):
+        if self.name == 'Temp' or self.name == 'Shovel':
+            return self.name
+        else:
+            return self.name[0]
+
     def rotate(self, increment):
         # rotate the room around the root (self.hexes[0]) counterclockwise through angle (2pi/6)*increment
         # this matrix rotates row vectors in the plane x1 + x2 + x3 = 0 through 2pi/6
