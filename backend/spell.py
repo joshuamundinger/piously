@@ -277,29 +277,33 @@ class Usurper(Spell):
         self._validate_spell_status_and_tap(board)
         # pick two linked hexes to flip
         for i in range(2):
-            hex_to_flip = board.screen.choice(1 + i) or choose_hexes(
-                board.screen,
-                location.linked_hexes(board, self.artwork.hex),
-                prompt_text = 'Click a {} aura to flip'.format(self.faction),
-            )
-            if hex_to_flip == None:
-                return self._exit_cast(done=False)
-            hex_to_flip.aura = other_faction(hex_to_flip.aura)
-            board.flush_aura_data()
-            # check to see if we flipped under the artwork/
-            # if so, stop Usurping
-            if self.artwork.hex.aura != board.faction:
-                return self._exit_cast(done=True)
+            prev_choice = board.screen.choice(1 + i)
+            if prev_choice == None:
+                hex_to_flip = choose_hexes(
+                    board.screen,
+                    location.linked_hexes(board, self.artwork.hex),
+                    prompt_text = 'Click a {} aura to flip'.format(self.faction),
+                )
+                if hex_to_flip == None:
+                    return self._exit_cast(done=False)
+                hex_to_flip.aura = other_faction(hex_to_flip.aura)
+                board.flush_aura_data()
+                # check to see if we flipped under the artwork/
+                # if so, stop Usurping
+                if self.artwork.hex.aura != board.faction:
+                    return self._exit_cast(done=True)
         for i in range(2):
-            hex_to_change = board.screen.choice(3 + i) or choose_hexes(
-                board.screen,
-                location.adjacent_linked_region(board, self.artwork.hex),
-                prompt_text = 'Click a hex on which to grow',
-            )
-            if hex_to_change == None:
-                return self._exit_cast(done=False)
-            hex_to_change.aura = board.faction
-            board.flush_aura_data()
+            prev_choice = board.screen.choice(3 + i)
+            if prev_choice == None:
+                hex_to_change = board.screen.choice(3 + i) or choose_hexes(
+                    board.screen,
+                    location.adjacent_linked_region(board, self.artwork.hex),
+                    prompt_text = 'Click a hex on which to grow',
+                )
+                if hex_to_change == None:
+                    return self._exit_cast(done=False)
+                hex_to_change.aura = board.faction
+                board.flush_aura_data()
         return self._exit_cast(done=True)
 
 class Upset(Spell):
@@ -331,6 +335,7 @@ class Stonemason(Spell):
 
     def cast(self, board):
         self._validate_artwork_status(board)
+        board.check_game_over = False
 
         moving_room = board.screen.choice(1) or choose_from_list(
             board.screen,
@@ -372,6 +377,7 @@ class Stonemason(Spell):
                 pass
 
         board.screen.info.error = ""
+        board.check_game_over = True
         return self._exit_cast(done=True)
 
 class Shovel(Spell):

@@ -16,7 +16,10 @@ import copy
 # - audit use of raise InvalidMove vs setting error msg directly
 # - consider refactoring so that current_action is lower level - ex click spell, click hex ect
 # - remove start_faction param from Game
-# - make starting board valid
+# - make database or logging to
+#    - track # games played
+#    - track who started, who won, and with what spells
+#    - not loose game state when server restarts
 
 class Game(object):
     def __init__(self, start_faction):
@@ -511,15 +514,14 @@ class Game(object):
         return {
             'info': self.screen.info.text,
             'error': self.screen.info.error,
-            'action_buttons_on': self.screen.action_buttons_on,
             'reset_on': self.screen.reset_on,
             'current_action': action,
 
+            'game_over': self.current_board.game_over,
             'current_player': self.current_board.faction,
             'actions_remaining': self.current_board.actions,
             'hexes': self.current_board.return_hex_data(),
             'spells': self.current_board.return_spell_data(),
-            'game_over': self.current_board.game_over,
         }
 
     # main method for js frontend
