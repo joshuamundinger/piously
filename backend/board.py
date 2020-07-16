@@ -46,6 +46,7 @@ class Board(object):
             'Light': Player('Light'),
         }
         self.game_over = False
+        self.check_game_over = True
 
         # IDEA: what if each Room inits it's spells and each a_spell inits its
         # artworks and neither are stored directly on board
@@ -182,6 +183,8 @@ class Board(object):
         return eligible_spells
 
     def is_game_over(self):
+        if not self.check_game_over:
+            return False
         # for each aura'd hex in a room, check if the linked region has all seven rooms.
         winners = []
         for hex in self.rooms[0].hexes:
@@ -319,7 +322,6 @@ class Board(object):
         for spell in self.spells:
             data.append({
                 'name': spell.name,
-                'description': spell.description,
                 'faction': spell.faction,
                 'tapped': spell.tapped,
                 'has_artwork': bool(spell.artwork),

@@ -19,7 +19,6 @@
 .buttons1 {
   margin: 4px;
   margin-bottom: 2px;
-  /* margin: 0px 4px; */
   display: flex;
 }
 .buttons2 {
@@ -171,18 +170,13 @@ svg .game .Temp {
 /* Button Formatting */
 /*********************/
 button {
-  /* box-sizing: border-box; */
   font-size: 12px;
   color: #333;
   background: #fff;
   border: 1px solid #888;
-  /* border-radius: 2px; */
   margin: 0px 1px;
-  /* display: flex; */
   justify-content: space-between;
-  /* flex-direction: row; */
   flex: 1;
-  /* width: calc(25% - 2px);*/ /* 4 buttons across with room for padding */
 }
 form button {
   display: inline-block;
