@@ -1,0 +1,109 @@
+/******************************/
+/*   Spell Table Formatting   */
+/******************************/
+/* NOTE: color gradients are  */
+/* applied to the spell table */
+/* in GameLayout.css          */
+/******************************/
+
+.spell-detail {
+  margin-top: 4px;
+  text-align: center;
+  /* margin-left: 10%; margin-right: 10% */
+  /* border: 1px solid #888; */
+  /* height: 100%; */
+  /* display: flex; */
+}
+.spell-img {
+  height: 60px;
+  margin-top: 2px;
+  /* margin-bottom: 0px; */
+  /* float: left; */
+  /* margin-right: 4px; */
+  border: 1px solid #888;
+}
+.spell-detail p {
+  margin: 0px 8px;
+  /* margin-top: 2px; */
+  text-align: left;
+  /* display: flex;
+  flex-direction: column; */
+  color: #333;
+  /* text-indent: 4px; */
+  /* margin-left: 8px; */
+}
+.spell-detail .text-center {
+  /* margin: 0px; */
+  display: block;
+  text-align: center;
+  color: #333;
+  /* text-indent: 4px; */
+  margin-top: 4px;
+  /* margin-bottom: 32px; */
+}
+table.spellTable {
+  /* margin: 1em; */
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  border-collapse: collapse;
+  /* cell-spacing: 0px; */
+  border: 1px solid #888;
+  /* border-radius: 5px; */
+}
+table.spellTable td, table.spellTable th {
+  padding: 5px;
+  line-height: 8px;
+}
+table.spellTable thead {
+  background: #333;
+  border: 1px solid #333;
+
+}
+table.spellTable thead th {
+  font-weight: normal;
+  color: #fff;
+}
+table.spellTable tbody tr {
+  background: #fff;
+  color: #333;
+  /* border-left: 1px solid #888;
+  border-right: 1px solid #888; */
+  /* font-weight: bold; */
+  /* line-height: 8px; */
+}
+table.spellTable tbody tr:not(:last-child){
+  /* color: red; */
+  border-bottom: 0.1px solid #ccc;
+}
+table.spellTable tbody tr:last-child {
+  /* color: red; */
+  border-bottom: 1px solid #888;
+}
+table.spellTable tbody tr.activePlayer {
+  font-weight: bold;
+}
+table.spellTable tbody tr:hover.active{
+  background: #ddd;
+}
+table.spellTable tbody tr:focus{
+  background: #ddd;
+  outline-color: #333;
+}
+table.spellTable tbody tr:focus.disabled{
+  outline: none;
+}
+table.spellTable tbody tr.disabled td:not(:first-child){
+  background: #eee;
+  opacity: 0.7;
+}
+table.spellTable tbody tr.disabled{
+  background: #eee;
+  /* opacity: 0.7; */
+  /* font-weight: normal; */
+}
+table.spellTable tbody td:nth-child(1) {
+  /* opacity: 0.9; */
+  text-shadow: 0px 0px 2px white, 0px 0px 4px white;
+  text-align: right;
+}

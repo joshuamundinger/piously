@@ -1,33 +1,78 @@
 .App {
   text-align: center;
   font-family: sans-serif;
+  font-size: 12px;
+  max-width: 900px;
+  min-width: 628px;
+  /* width: 100%; */
+  /* display: block; */
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .App-header {
   background-color: #333;
-  color: #eee;
-  padding: 1em;
+  color: #fff;
+  padding: 4px;
 }
-
+.App-preintro {
+  min-height: 80px;
+}
+.App-preintro.flex {
+  display: flex;
+}
+.header-left, .header-right {
+  flex: 1;
+  display: flex;
+  min-width: -webkit-min-content; /* Workaround to Chrome bug */
+}
+.header-right {
+  justify-content: flex-end;
+}
+/* .header-center {
+  justify-content: center;
+  display: block;
+} */
+.header-left {
+  justify-content: flex-start;
+}
 .App-logo {
-  height: 50px;
+  margin: 24px 4px 4px 0px;
+  height: 30px;
+  display: inline-block;
+  vertical-align: middle;
 }
-
+h1 {
+  margin: 24px 0px 4px 4px;
+  display: inline-block;
+  vertical-align: middle;
+}
 .App-intro {
   background-color: #eee;
   color: #333;
   padding: 5px;
 }
+.App-intro.small-padding p {
+  margin: 4px;
+}
 
 .App-body {
   background-color: #eee;
-  padding-top: 1em;
-  padding-bottom: 1em;
+  border: 4px solid #333;
+  border-top: none;
+  min-height: 420px;
+  /* padding-top: 1em; */
+  /* padding-bottom: 1em; */
   /* margin: 0px; */
 }
 
 .error {
   color: #ba1414;
+}
+
+.mono {
+  font-family: monospace;
+  font-weight: bold;
 }
 
 .row {
@@ -36,19 +81,138 @@
 }
 
 .column {
-  flex: 50%;
+  /* flex: 50%; */
+  float: left;
+}
+.buttons-and-board {
+  width: 70%
+}
+.spells {
+  width: 30%;
+  min-width: 220px;
 }
 
-[draggable] {
-  /* make elements draggable*/
-  -moz-user-drag: element;
-  -webkit-user-drag: element;
-  -khtml-user-drag: element;
-  user-drag: element;
+/* @media (min-width: 720px) {
+  .spells {
+    width: 220px;
+  }
 
-  /* make text on draggable objects not selectable */
-  -moz-user-select: none;
-  -khtml-user-select: none;
-  -webkit-user-select: none;
-  user-select: none;
+  .buttons-and-board {
+    display: table-cell;
+    width: calc(100% - 220px);
+  }
+} */
+
+/***********************/
+/* Intro Page Settings */
+/***********************/
+.text-left {
+  text-align: left;
+  margin: 12px;
+}
+
+.Board-img {
+  max-width: 320px;
+  width: 50%;
+  float: right;
+  margin: 2px 12px;
+  border: 1px solid #888;
+}
+
+em {
+  font-style: normal;
+  font-weight: bold;
+  font-size: 18px;
+  font-variant: small-caps;
+}
+ul {
+  padding-left: 20px;
+}
+p + ul {
+  margin-top: -10px;
+}
+form {
+  border: 1px solid #888;
+  margin-left: 20px;
+  padding: 4px;
+  display: inline-block;
+  background-color: #ddd;
+}
+
+.game_and_player_text p,
+.nav-btn p {
+  /* float: right; */
+  /* position: sticky; */
+  margin: 0px;
+}
+
+/******************/
+/* Modal Settings */
+/******************/
+button.nav-btn {
+  /* float: left; */
+  /* min-width: 0; */
+  /* text-align: left; */
+  /* vertical-align:  top; */
+  /* display: block; */
+  /* display: inline; */
+  /* margin-right: -202px; */
+  width: auto;
+  height: 20px;
+  flex: none;
+
+}
+/* .nav-btn.modal {
+  margin-bottom: -20px;
+} */
+/* . {
+  margin-left: 102px;
+} */
+.nav-btn:focus::after,
+.nav-btn:hover::after {
+  /* position: absolute; */
+  position: relative;
+  content: attr(data-tooltip);
+  bottom: -5px;
+  /* right: 10px; */
+  /* background-color: red; */
+  color: white;
+  width: 0px;
+  /* padding: -10px; */
+  /* transform: translate(20px, 0px); */
+  /* padding: .25em .5em; */
+}
+.nav-btn em {
+  font-size: 14px;
+}
+.modal-background {
+  display: none;
+  position: fixed;
+  padding-top: 38px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.5);
+  /* transform: scale(1.0);
+  transition: display 2s linear 2s, opacity 2s 0s, transform 2s; */
+}
+.modal-content {
+  /* position: relative; */
+  background-color: #eee;
+  padding: 5px;
+  margin: auto;
+  /* margin: 30px; */
+  /* max-width: 80%; */
+  max-width: 815px;
+  /* min-width: 496px; */
+  color: #333;
+  border: 1px solid #333;
+}
+.modal.modal-close-btn {
+    float: right;
+    width: 20px;
+    height: 20px;
+    margin-left: 10px;
 }
