@@ -18,12 +18,12 @@ import numpy as np
 # TODO: make more things allow clicking (either replace keypress or allow both)
 #  - Leap + Locksmith choose_from_list to pick what obj to move
 #  - behavior questions:
-#     - can leave shovel floating? (now=yes)
-#     - can imposter onto shovel? (now=yes)
-#     - can imposter from shovel? (now=yes)
+#     - [done] can leave shovel floating? (now=no) > NO
+#     - [done] can imposter onto shovel? (now=yes) > YES (but you'd never want to)
+#     - [done] can imposter from shovel? (now=yes) > YES (places 3 nones + shovel aura)
 #     - can stonemason the shovel (now=yes)
 # - test edge cases:
-#
+#     - [done] Imposter with Shovel
 
 class Spell(object):
     def __init__(self):
@@ -76,9 +76,9 @@ class Spell(object):
         if self.artwork:
             if self.artwork.hex:
                 if self.artwork.hex.aura != board.faction:
-                    raise InvalidMove('{} is not on player\'s aura'.format(self.name))
+                    raise InvalidMove('{} artwork is not on player\'s aura'.format(self.name))
             else:
-                raise InvalidMove('{} is not placed on board'.format(self.name))
+                raise InvalidMove('{} artwork is not placed on board'.format(self.name))
 
     # TODO: verify all returns call this method
     def _exit_cast(self, done):
@@ -180,7 +180,6 @@ class Imposter(Spell):
                 # all the auras are the same (there may only be one)
                 target_room.hexes[0].aura = aura_list[0]
             return self._exit_cast(done=True)
-        # TODO: test shovel
 
         if place_auras_on_hexes(board, self, aura_list, target_room.hexes, 3):
             return self._exit_cast(done=True)
@@ -225,13 +224,13 @@ class Opportunist(Spell):
         super(Opportunist, self).__init__()
         self.name = 'Opportunist'
         self.color = 'Orange'
-        self.description = 'Ready spell from linked room'
+        self.description = 'Reuse spell from linked room'
         self.artwork = artwork
 
     def cast(self, board):
         self._validate_spell_status_and_tap(board)
 
-        rooms_names = [room.name for room in location.linked_rooms(board, self.artwork.hex)]
+        rooms_names = [room.color_name() for room in location.linked_rooms(board, self.artwork.hex)]
 
         eligible_spells = []
         for spell in board.spells:
@@ -306,7 +305,7 @@ class Usurper(Spell):
 class Upset(Spell):
     def __init__(self):
         super(Upset, self).__init__()
-        self.name = 'Upset '
+        self.name = 'Upset'
         self.color = 'Umber'
         self.description = 'Rearrange auras under & around self'
 
@@ -482,7 +481,7 @@ class Locksmith(Spell):
 class Leap(Spell):
     def __init__(self):
         super(Leap, self).__init__()
-        self.name = 'Leap  '
+        self.name = 'Leap'
         self.color = 'Lime'
         self.description = 'Trade places with object in row'
 
@@ -568,7 +567,7 @@ class Yeoman(Spell):
 class Yoke(Spell):
     def __init__(self):
         super(Yoke, self).__init__()
-        self.name = 'Yoke  '
+        self.name = 'Yoke'
         self.color = 'Yellow'
         self.description = 'Move self and object one space'
 

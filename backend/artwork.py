@@ -15,4 +15,4 @@ class Artwork(object):
         return self.color
 
     def get_type(self):
-        return 'art'
+        return 'artwork'

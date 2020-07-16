@@ -102,13 +102,25 @@ class Game(object):
         if len(eligible_artworks) == 0:
             raise InvalidMove('{} does not have any unplaced artworks'.format(faction))
 
-        # prompt for artwork choice if needed
-        artwork = self.screen.choice(0) or self.screen_input.choose_from_list(
-            self.screen,
-            eligible_artworks,
-            'Choose artwork to drop:',
-            '{} does not have any unplaced artworks'.format(faction)
-        )
+        artwork = self.screen.choice(0)
+        if artwork == None:
+            # set artwork based on click if it's been chosen
+            if 'click_spell_idx' in self.screen.data:
+                spell_idx = self.screen.data['click_spell_idx']
+                click_artwork = self.current_board.spells[spell_idx].artwork
+                self.screen.data.pop('click_spell_idx')
+                if click_artwork in eligible_artworks:
+                     artwork = click_artwork
+                     self.screen.choices.append(artwork)
+
+            # otherwise, get user input
+            else:
+                artwork = self.screen_input.choose_from_list(
+                    self.screen,
+                    eligible_artworks,
+                    'Choose artwork to drop:',
+                    '{} does not have any unplaced artworks'.format(faction)
+                )
         if artwork == None:
             return False
 
@@ -240,11 +252,12 @@ class Game(object):
 
         # if this is the first call to place_rooms, set welcome message
         if not self.screen.choice(0):
-            self.current_board.screen.info.text = "{}\nMoving room {}.\n{}".format(
-                'Welcome to Piously! Dark begins by arranging the board.',
+            self.current_board.screen.info.text = "{} Moving {} room.\n{}".format(
+                'Dark begins by arranging the board.',
                 current_room.name,
                 instructions,
             )
+            self.screen.choices[0] = current_room
 
         setting_up_board = True
         while setting_up_board:
@@ -260,7 +273,7 @@ class Game(object):
                     current_room = self.current_board.rooms[current_room_index]
                     self.screen.choices[0] = current_room
                     self.current_board.screen.info.text = \
-                        "Moving room {}.\n{}".format(current_room.name, instructions)
+                        "Moving {} room.\n{}".format(current_room.name, instructions)
             elif key == "return" or key == "Enter":
                 # check to see if board satisfies connectivity rules
                 if self.current_board.check_for_collisions(current_room):
@@ -415,6 +428,12 @@ class Game(object):
             # a new option after the previous one completed
             pass
         elif action == 'maybe end game':
+            # start_msg = self.screen.choice(0)
+            # print('start msg', start_msg)
+            # if start_msg == None:
+            #     start_msg = self.screen.info.text
+            #     print(start_msg)
+            #     self.screen.choices.append(start_msg)
             confirmation = self.screen_input.choose_from_list(
                 self.screen,
                 ['Yes', 'No'],
@@ -433,6 +452,10 @@ class Game(object):
                         other_faction(current_faction),
                     )
             elif confirmation == 'No':
+                # self.screen.info.text = 'Not ending game. {}'.format(start_msg)
+                # self.screen.data['current_action'] = self.start_action
+                # self.screen.action_buttons_on = False
+                # self.screen.choices = []
                 done = True
                 done_msg = 'Not ending game'
 
