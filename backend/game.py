@@ -10,6 +10,8 @@ from graphics.js_screen import MockScreen
 import graphics.pygame_input as pygame_input
 import graphics.js_input as js_input
 import copy
+from json import dump
+from datetime import datetime as dt
 
 # TODO:
 # - cancel options - ex. when choosing spell to cast
@@ -22,16 +24,20 @@ import copy
 #    - not loose game state when server restarts
 
 class Game(object):
-    def __init__(self, start_faction):
+    def __init__(self, game_id):
         # choose pygame vs js frontend
         # IMPORTANT: if you update, also update imports in spell.py
         self.mode = 'js' # 'js' or 'pygame'
 
+        self.game_id = game_id
         self.screen_input = js_input if self.mode == 'js' else pygame_input
         self.screen = MockScreen() if self.mode == 'js' else PygameScreen()
         self.old_board = Board(self.screen)
         self.current_board = copy.deepcopy(self.old_board)
         self.start_action = 'place rooms'
+
+        self.created = Game.current_time_str()
+        self.updated = Game.current_time_str()
 
     def __str__(self):
         return str(self.current_board)
@@ -41,6 +47,39 @@ class Game(object):
 
     def get_current_player(self):
         return self.current_board.get_current_player()
+
+    @staticmethod
+    def from_hash(hash):
+        game = Game(hash['game_id'])
+        hash['screen'] = game.screen
+
+        # TODO: make it work to save games that are still in setup steps
+        # This would require saving start action and moving screen.choices to use indices.
+        game.start_action = hash['start_action'] if 'start_action' in hash else 'none'
+        game.created = hash['created']
+        game.updated = hash['updated']
+
+        board = Board.from_hash(hash)
+        game.current_board = board
+        game.sync_boards()
+
+        return game
+
+    @staticmethod
+    def filename(game_id=None):
+        if game_id:
+            return 'saved_games/{}.json'.format(game_id)
+        else:
+            return 'saved_games'
+
+    @staticmethod
+    def current_time_str():
+        return dt.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    def save_to_file(self):
+        data = self.get_game_state(include_metadata=True)
+        with open(Game.filename(self.game_id), "w") as file:
+            dump(data, file)
 
     def move(self):
         if self.current_board.actions < 1:
@@ -230,7 +269,7 @@ class Game(object):
             raise InvalidMove('You cannot end turn with negative actions, please reset turn and try again')
 
         if self.maybe_claim_spell():
-            self.current_board.end_turn()
+            self.current_board.end_turn() # update faction, untap spells, reset # actions
             self.sync_boards()
             return True
         else:
@@ -241,8 +280,8 @@ class Game(object):
 
     def place_rooms(self):
         instructions = \
-            "Rooms cannot overlap, each room must be adjacent to at least two" \
-            + " other rooms, and the whole temple must be connected.\n" \
+            "Rooms cannot overlap and each room must touch at least" \
+            + " two other rooms.\n" \
             + "Use < arrow keys > to move, < , . > to rotate, < space >" \
             + " to switch to the next room, < [ ] > to zoom, and < enter > to end."
 
@@ -282,9 +321,11 @@ class Game(object):
                 if self.current_board.check_for_collisions(current_room):
                     self.current_board.screen.info.error = "Avoid collisions!"
                 else:
-                    setting_up_board = not(self.current_board.connectivity_test())
-                    if setting_up_board:
-                        self.current_board.screen.info.error = "Board not connected."
+                    connected, msg = self.current_board.connectivity_test()
+                    if not connected:
+                        self.current_board.screen.info.error = "Invalid board arrangement. " + msg
+                    else:
+                        setting_up_board = False
             else:
                 current_room.keyboard_movement(key)
                 self.current_board.screen.info.error = None
@@ -316,7 +357,7 @@ class Game(object):
             )
             if hex1 == None:
                 return False
-            self.current_board.move_object(self.current_board.get_current_player(), to_hex=hex1)
+            self.current_board.move_object(self.get_current_player(), to_hex=hex1)
             self.current_board.flush_player_data()
             self.current_board.end_turn(actions=None)
 
@@ -329,7 +370,7 @@ class Game(object):
         )
         if hex2 == None:
             return False
-        self.current_board.move_object(self.current_board.get_current_player(), to_hex=hex2)
+        self.current_board.move_object(self.get_current_player(), to_hex=hex2)
         self.current_board.end_turn()
         # self.sync_boards() # handle in play / do_action
         self.current_board.flush_player_data()
@@ -383,16 +424,31 @@ class Game(object):
             self.screen.info.text = "WINNER: {}!".format(winning_faction)
         else:
             current_faction = self.current_board.faction
-            self.screen.info.text = '{} forefits, {} wins!'.format(
+            self.screen.info.text = '{} forfeits, {} wins!'.format(
                 current_faction,
                 other_faction(current_faction),
             )
+        self.save_to_file()
         return True
-
 
     def call_action(self):
         action = self.screen.data['current_action']
-        print('calling {}'.format(action))
+
+        request_player = self.screen.data['request_player']
+        if request_player == 'All':
+            request_player = self.current_board.faction
+
+        if action == 'none':
+            # This happens if the user has not selected a new option after
+            # the previous one completed
+            # print('.none.')
+            return
+        elif request_player != self.current_board.faction:
+            # print('.not_enabled.') # '{} not enabled, returning without calling action'.format(request_player))
+            return
+
+        print('[{}] calling action:{}, player:{}'.format(self.game_id, action, request_player))
+        self.screen.info.error = None
         done = False
         done_msg = ''
 
@@ -412,8 +468,18 @@ class Game(object):
             done = self.cast_spell()
             done_msg = 'Done casting'
         elif action == 'end turn':
-            done = self.end_turn()
-            done_msg = 'Now it\'s {}\'s turn'.format(self.current_board.faction)
+            # TODO: only ask for confirmation if there are unused actions/spells
+            confirmation = self.screen.choice(0) or self.screen_input.choose_from_list(
+                self.screen,
+                ['Yes', 'No'],
+                'Are you sure you want end your turn?'
+            )
+            if confirmation == 'Yes':
+                done = self.end_turn()
+                done_msg = 'Now it\'s {}\'s turn'.format(self.current_board.faction)
+            elif confirmation == 'No':
+                done = True
+                done_msg = 'Not ending turn'
         elif action == 'reset turn':
             done = self.reset_turn()
             done_msg = 'Turn reset'
@@ -426,17 +492,7 @@ class Game(object):
         elif action == 'place players':
             done = self.place_players()
             done_msg = 'Player setup done'
-        elif action == 'none':
-            # This happens if the page is refreshed or the user has not selected
-            # a new option after the previous one completed
-            pass
         elif action == 'maybe end game':
-            # start_msg = self.screen.choice(0)
-            # print('start msg', start_msg)
-            # if start_msg == None:
-            #     start_msg = self.screen.info.text
-            #     print(start_msg)
-            #     self.screen.choices.append(start_msg)
             confirmation = self.screen_input.choose_from_list(
                 self.screen,
                 ['Yes', 'No'],
@@ -450,7 +506,7 @@ class Game(object):
                     done_msg = "WINNER: {}!".format(winning_faction)
                 else:
                     current_faction = self.current_board.faction
-                    done_msg = '{} forefits, {} wins!'.format(
+                    done_msg = '{} forfeits, {} wins!'.format(
                         current_faction,
                         other_faction(current_faction),
                     )
@@ -462,12 +518,9 @@ class Game(object):
                 done = True
                 done_msg = 'Not ending game'
 
-        print('move:{} done:{} buttons_on:{}'.format(
-            action, done, self.screen.action_buttons_on
-        ))
+        print('[{}] called action:{}, done:{}'.format(self.game_id, action, done))
 
         if done:
-            print('{} done'.format(action))
             select_option_text = 'Select an option (click button or use keybinding)'
 
             self.screen.data['current_action'] = 'none'
@@ -509,9 +562,22 @@ class Game(object):
                 self.screen.data['current_action'] = 'end game'
                 self.screen.info.text = done_msg
 
-    def get_game_state(self):
+            self.save_to_file()
+
+    def get_game_state(self, include_metadata=False):
         action = self.screen.data['current_action'] if self.screen.data else 'none'
-        return {
+
+        if include_metadata:
+            data = {
+                'game_id': self.game_id,
+                'created': self.created,
+                'updated': self.updated,
+                'start_action': self.start_action,
+            }
+        else:
+            data = {}
+
+        data.update({
             'info': self.screen.info.text,
             'error': self.screen.info.error,
             'reset_on': self.screen.reset_on,
@@ -522,13 +588,14 @@ class Game(object):
             'actions_remaining': self.current_board.actions,
             'hexes': self.current_board.return_hex_data(),
             'spells': self.current_board.return_spell_data(),
-        }
+        })
+        return data
 
     # main method for js frontend
     # TODO: check is_game_over at needed points in spells
     def do_action(self, data):
+        self.updated = Game.current_time_str()
         self.screen.data = data
-        self.screen.info.error = None
 
         try:
             self.call_action()
@@ -540,11 +607,11 @@ class Game(object):
             self.screen.data['current_action'] = 'none'
 
         if self.is_game_over():
-            self.end_game()
             self.start_action = 'end game'
             self.screen.data['current_action'] = 'end game'
+            self.end_game()
 
-        print('do action return, action = {}'.format(self.screen.data['current_action']))
+        # print('[{}] do_action return, action:{}'.format(self.game_id, self.screen.data['current_action']))
         return self.get_game_state()
 
 

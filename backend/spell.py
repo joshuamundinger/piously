@@ -345,7 +345,11 @@ class Stonemason(Spell):
         if moving_room == None:
             return self._exit_cast(done=False)
 
-        board.screen.info.text = "Arrow keys move Room {}. < , > and < . > rotate. Enter to finish.".format(moving_room)
+        board.screen.info.text = \
+            "Use < arrow keys > to move {} room,".format(moving_room) \
+            + "  < , . > to rotate, < [ ] > to zoom, and < enter > to end.\n" \
+            + "Rooms cannot overlap and each room must touch at least" \
+            + " two other rooms. The Shovel must touch at least one room."
         finished_with_stonemason = False
 
         while not(finished_with_stonemason):
@@ -359,10 +363,9 @@ class Stonemason(Spell):
                 if board.check_for_collisions(moving_room):
                     finished_with_stonemason = False
                     board.screen.info.error = "Overlaps are death."
-                if not board.connectivity_test():
-                    board.screen.info.error = "Board fails connectivity rules:" \
-                        + " Each room must be adjacent to at least two other rooms," \
-                        + " and the whole temple must be connected"
+                connected, msg = board.connectivity_test()
+                if not connected:
+                    board.screen.info.error = "Board fails connectivity rules: " + msg
                     finished_with_stonemason = False
             else:
                 moving_room.keyboard_movement(key)
@@ -614,16 +617,14 @@ class Yoke(Spell):
         )
         if player_direction == None:
             return self._exit_cast(done=False)
+
         # get the directions of both player and target by finding the entry
         # whose first entry is the player
         movement_data = [x for x in possible_location_data if x[0] == player_direction][0]
+
         # move the player and object
-        current_player.hex.occupant = None
-        target_object.hex.occupant = None
-        current_player.hex = movement_data[0]
-        target_object.hex = movement_data[1]
-        current_player.hex.occupant = current_player
-        target_object.hex.occupant = target_object
+        board.move_object(current_player, current_player.hex, movement_data[0])
+        board.move_object(target_object, target_object.hex, movement_data[1])
         return self._exit_cast(done=True)
 
 """
@@ -638,9 +639,16 @@ Params:
  - hex_list: list of hexes to put auras on
 """
 def place_auras_on_hexes(board, spell, aura_list, hex_list, choice_idx):
+    # If all auras match just fill all the hexes
+    if len(aura_list) == len(hex_list) and len(set(aura_list)) == 1:
+        for hex in hex_list:
+            hex.aura = aura_list[0]
+        return spell._exit_cast(done=True)
+
     auras_to_place = board.screen.choice(choice_idx)
     if not auras_to_place:
          auras_to_place = [aura for aura in aura_list if aura] # remove Nones
+         auras_to_place.sort() # place all Dark auras then all Light auras
          board.screen.choices.append(auras_to_place)
 
          # clear out existing auras on the hexes
@@ -653,19 +661,20 @@ def place_auras_on_hexes(board, spell, aura_list, hex_list, choice_idx):
 
     all_auras = deepcopy(auras_to_place)
     for aura in all_auras:
+        auras_to_place.remove(aura)
         new_hex = choose_hexes(
             board.screen,
             [hex for hex in hex_list if not hex.aura],
-            prompt_text = "Auras to place: {}. Click a hex for aura {}".format(
-                ', '.join(auras_to_place),
+            prompt_text = "Click a hex for aura {}.\nAfter this you will place {}".format(
                 aura,
+                ', '.join(auras_to_place),
             ),
         )
         if new_hex == None:
+            auras_to_place.insert(0, aura) # add aura back to beginning since it wasn't placed
             return spell._exit_cast(done=False)
 
         new_hex.aura = aura
-        auras_to_place.remove(aura)
         board.flush_aura_data()
 
     return spell._exit_cast(done=True)

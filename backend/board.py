@@ -15,6 +15,7 @@ import numpy as np
 from backend.artwork import Artwork
 from backend.errors import InvalidMove
 from backend.helpers import display_list, other_faction
+from backend.hex import Hex
 from backend.location import neighboring_region, find_adjacent_rooms, hexes_colocated, linked_rooms
 from backend.player import Player
 from backend.room import Room
@@ -138,6 +139,58 @@ class Board(object):
             deepcopy(self.rooms, memo),
         )
 
+    @staticmethod
+    def from_hash(hash):
+        room_dict = {} # room name to list of hexes
+        obj_dict = {} # object name to hex
+        spell_dict = {} # spell name to a list of [faction, tapped]
+        for hex_hash in hash['hexes']:
+            x, y = hex_hash['x'], hex_hash['y']
+            location = np.matrix([x, y, -1*x - y])
+
+            hex = Hex(None, location)
+            hex.aura = hex_hash['aura_color']
+
+            obj_dict[hex_hash['obj_color']] = hex
+
+            room_hexes = room_dict.get(hex_hash['room'], [])
+            room_hexes.append(hex)
+            room_dict[hex_hash['room']] = room_hexes
+
+        for spell in hash['spells']:
+            spell_dict[spell['name']] = [spell['faction'], spell['tapped']]
+
+        board = Board(
+            hash['screen'],
+            faction = hash['current_player'],
+            actions = hash['actions_remaining'],
+        )
+        board.game_over = hash['game_over']
+        board.screen.info.text = hash['info']
+        board.screen.info.error = hash['error']
+        board.screen.reset_on = hash['reset_on']
+        for spell in board.spells:
+            spell.faction = spell_dict[spell.name][0]
+            spell.tapped = spell_dict[spell.name][1]
+            if spell.artwork:
+                spell.artwork.faction = spell.faction
+
+        for player in board.players.values():
+            if player.faction in obj_dict:
+                player.hex = obj_dict[player.faction]
+                player.hex.set_object(player)
+        for artwork in board.artworks:
+            if artwork.color in obj_dict:
+                artwork.hex = obj_dict[artwork.color] # TODO: rename color to name or spell
+                artwork.hex.set_object(artwork)
+        for room in board.rooms:
+            room.hexes = room_dict[room.name]
+            room.root = room.hexes[0]
+            for hex in room.hexes:
+                hex.room = room
+
+        return board
+
     def get_current_player(self):
         return self.players[self.faction]
 
@@ -220,14 +273,15 @@ class Board(object):
                 neighboring_rooms.append(current_room)
         return neighboring_rooms
 
+    # return whether the board satisfies connectivity rules, and an error if not
     def connectivity_test(self):
         for room in self.rooms:
             neighbors = find_adjacent_rooms(self, room, include_shovel=False)
             if room.name == 'Shovel' and len(neighbors) < 1:
-                return False
+                return False, 'Shovel must touch at least one room'
             elif room.name != 'Shovel' and len(neighbors) < 2:
-                return False
-        return True
+                return False, '{} must touch at least two other rooms'.format(room.name)
+        return True, ''
 
     #returns whether room collides with another room in the board
     def check_for_collisions(self, room):
@@ -253,22 +307,22 @@ class Board(object):
         self.faction = other_faction(self.faction)
 
     def move_object(self, occupant, from_hex=None, to_hex=None):
-            # order matters here, updating occupant.hex last makes it ok for
-            #from_hex to be occupant.hex initially
-            if from_hex != None:
-                from_hex.occupant = None
-            if to_hex != None:
-                if to_hex.occupant != None:
-                    raise InvalidMove('You\'re trying to move onto an occupied hex.')
-                to_hex.occupant = occupant
-            occupant.hex = to_hex
+        # order matters here, updating occupant.hex last makes it ok for
+        # from_hex to be occupant.hex initially
+        if from_hex != None:
+            from_hex.set_object(None)
+        if to_hex != None:
+            if to_hex.occupant != None:
+                raise InvalidMove('You\'re trying to move onto an occupied hex.')
+            to_hex.set_object(occupant)
+        occupant.hex = to_hex
 
     def swap_object(self, object1, object2):
         hex_1 = object1.hex
         object1.hex = object2.hex
         object2.hex = hex_1
-        object2.hex.occupant = object2
-        object1.hex.occupant = object1
+        object2.hex.set_object(object2)
+        object1.hex.set_object(object1)
 
     def get_all_hexes(self):
             # returns a list of all hexes
@@ -295,13 +349,11 @@ class Board(object):
         for room in self.rooms:
             for hex in room.hexes:
                 if hex.occupant:
-                    type = hex.occupant.get_type()
+                    type = hex.occupant.get_obj_type()
                     color = hex.occupant.get_color()
-                    name = str(hex.occupant)
                 else:
                     type = None
                     color = None
-                    name = None
 
                 hex_maps.append({
                     'x': int(hex.location.flat[0]),
@@ -310,7 +362,6 @@ class Board(object):
                     'room_color': hex.room.color_name(),
                     'obj_color': color,
                     'obj_type': type,
-                    'obj_name': name,
                     'aura_color': hex.aura,
                     'active': not self.game_over and hex in self.screen.active_hexes,
                 })

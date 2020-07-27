@@ -14,5 +14,5 @@ class Artwork(object):
     def get_color(self):
         return self.color
 
-    def get_type(self):
+    def get_obj_type(self):
         return 'artwork'
