@@ -61,7 +61,7 @@ class Rules extends Component {
           There are nine objects: one artwork object for each of the seven
           artwork spells and two player objects.
           Two objects may never share the same hex. Many of the spells allow
-          you to act on objects and move them around the temple.
+          you to act on objects and move them around the board.
         </li>
       </ul></>
     )
@@ -92,25 +92,40 @@ class Intro extends Component {
   handleInputChange(event) {
     const target = event.target;
     const name = target.name;
-    const value = (name === 'game_id' ? target.value : target.checked);
 
-    console.log(`setting ${name}=${value}`)
-    this.setState({
-      [name]: value
-    });
-
-    if (this.state.game_id) {
-      if (this.state.game_id.match(/^[0-9a-zA-Z]{1,16}$/)) {
-        console.log('valid')
+    if (name === 'game_id') {
+      const value = target.value;
+      if (value.match(/^[0-9a-zA-Z]{1,16}$/)) {
+        this.setState({
+          game_id: value,
+          error: '',
+        });
+      } else if (!value.match(/^[0-9a-zA-Z]*$/)) {
+        this.setState({
+          game_id: value,
+          error: 'Error: Game ID can only include letters and numbers'
+        });
+      } else if (value === '') {
+        this.setState({
+          game_id: value,
+          error: 'Error: Game ID is required'
+        });
       } else {
-        console.log('invalid')
+        this.setState({
+          game_id: value,
+          error: 'Error: Game ID must be 1-16 characters and can only include letters and numbers'
+        });
       }
+    } else {
+      // one of the faction checkboxes
+      const value = target.checked;
+      this.setState({
+        [name]: value
+      });
     }
   }
 
   handleClick(e) {
-    console.log('click', this.state);
-
     if (!this.state || !this.state.game_id) {
       this.setState({
         error: 'Error: Game ID is required'
@@ -190,7 +205,7 @@ class Intro extends Component {
             required="required"
             size="16"
             onChange={this.handleInputChange.bind(this)}
-          /><label> (up to 16 alphanumeric characters)</label><br />
+          /><label> (up to 16 alphanumeric characters)</label>
           <div className="error"><p>{this.state.error}</p></div>
 
           <button onClick={this.handleClick.bind(this)}>Start Game</button>
