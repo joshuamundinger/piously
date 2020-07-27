@@ -45,7 +45,6 @@ class Room(object):
             hex.location = hex.location + displacement
 
     def keyboard_movement(self, key):
-        print('moving room based on keypress:{}'.format(key))
         if key == "left" or key == "ArrowLeft":
             self.translate(np.matrix([0,-1,1]))
         elif key == "right" or key == "ArrowRight":

@@ -8,18 +8,18 @@ class MockScreen(object):
         self.info = MockTextbox()
         self.board_state = MockTextbox()
 
+        # used for pygame mode
         self.player_data = []
         self.hex_data = []
         self.artwork_data = []
         self.aura_data = []
-        self.active_hexes = []
-
-        # used for pygame mode
         self.key = None
         self.click_hex = None
-
-        self.data = None
         self.action_buttons_on = True
+
+        # used for js mode
+        self.active_hexes = []
+        self.data = None
         self.reset_on = False
         self.choices = []
 

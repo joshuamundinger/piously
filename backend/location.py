@@ -56,7 +56,7 @@ def leap_eligible(board, hex1, hex2):
     try:
         displacement = hex1.location - hex2.location
     except AttributeError:
-        print("You tried to leap, but passed nonexistent hexes or locations. Shame on you.")
+        # You tried to leap, but passed nonexistent hexes or locations. Shame on you.
         return False
     nonzero_entries = [x for x in displacement.flat if x != 0]
     number_of_tiles = np.gcd.reduce(nonzero_entries)

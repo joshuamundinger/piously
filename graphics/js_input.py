@@ -22,14 +22,12 @@ Params: list of objects
 Returns: chosen object
 '''
 def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid choices', all_spells=None):
-    print('choose from list {}'.format(ls))
     if len(ls) == 0:
         raise InvalidMove(error_text)
     elif len(ls) == 1:
         return complete_choice(screen, ls[0])
 
     if 'choice_idx' in screen.data:
-        print('using choice_idx')
         choice = screen.data['choice_idx']
         screen.data.pop('choice_idx')
         try:
@@ -41,7 +39,6 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
     elif 'click_spell_idx' in screen.data and all_spells:
         # This is a bit hacky, but will work for now
         # This depends on the order of board.spells matching the order on the frontend
-        print('using click_spell_idx')
         spell = all_spells[screen.data['click_spell_idx']]
         screen.data.pop('click_spell_idx')
         if spell not in ls:
@@ -50,7 +47,6 @@ def choose_from_list(screen, ls, prompt_text='Choose one:', error_text='No valid
 
         return complete_choice(screen, spell)
     else:
-        print('setting prompt')
         prompt = prompt_text
         for idx, obj in enumerate(ls, start=1):
             prompt += ' ({}) {}'.format(idx, obj)
@@ -129,5 +125,5 @@ def complete_choice(screen, choice):
     screen.action_buttons_on = True
     screen.choices.append(choice)
     screen.info.error = None
-    print('appended + returning {}. Choices: {}'.format(choice, screen.choices))
+    # print('appended + returning {}. Choices: {}'.format(choice, screen.choices))
     return choice

@@ -67,7 +67,9 @@ class App extends Component {
   }
 
   componentDidMount() {
-    this.setState(JSON.parse(sessionStorage.getItem('state')));
+    this.setState(JSON.parse(sessionStorage.getItem('state'))
+    // () => {this.fetchBoard({current_action: 'start'}, false);}
+  );
 
     // listen for keybindings
     document.addEventListener("keydown", this.handleKeyDown.bind(this));
@@ -121,6 +123,7 @@ class App extends Component {
 
     // console.log('fetching')
     data.game_id = this.state.game_id
+    data.request_player = this.request_player();
     try {
       const response = await fetch(`${HOST}/api/do_action`, {
         method: 'POST',
@@ -132,6 +135,7 @@ class App extends Component {
 
       const response_data = await response.json();
       this.setState(response_data);
+      console.log(response_data);
 
       if (response_data.backend_error) {
         console.log('backend error, clearing interval');
@@ -153,11 +157,14 @@ class App extends Component {
   };
 
   actions_on() {
-    return this.state.current_action === 'none';
+    return this.play_enabled() && this.state.current_action === 'none';
+  }
+  reset_on() {
+    return this.play_enabled() && this.state.reset_on;
   }
 
   updateCurrentAction(action) {
-    if (this.actions_on() || (this.state.reset_on && action === 'reset turn')) {
+    if (this.actions_on() || (this.reset_on() && action === 'reset turn')) {
       this.setState({current_action: action});
       this.fetchBoard({current_action: action});
     }
@@ -234,7 +241,7 @@ class App extends Component {
     } else if (e.key === ']') {
         // zoom in board (hexes get bigger)
         this.setState({half_hex_size: Math.min(5, this.state.half_hex_size + 0.1)});
-    } else if (this.actions_on() || (this.state.reset_on && e.key === 'r')) {
+    } else if (this.actions_on() || (this.reset_on() && e.key === 'r')) {
       if (e.key === '1') {
         this.handleBless()
       } else if (e.key === '2') {
@@ -296,6 +303,17 @@ class App extends Component {
   both_enabled() {
     return this.state.enabled.Dark && this.state.enabled.Light;
   }
+  request_player() {
+    if (this.view_only()) {
+      return null
+    } else if (this.both_enabled()) {
+      return 'All'
+    } else if (this.state.enabled.Dark) {
+      return 'Dark'
+    } else {
+      return 'Light'
+    }
+  }
 
   // show img for enabled player if there is just one, otherwise track current player
   player_img() {
@@ -346,7 +364,7 @@ class App extends Component {
 
   get_buttons() {
     const bstate = !this.actions_on();
-    const rstate = !this.state.reset_on;
+    const rstate = !this.reset_on();
     if (this.state.game_id && !this.state.current_player) {
       return (
         <div className='buttons'>
@@ -431,7 +449,7 @@ class App extends Component {
                 onClick={this.handleEndGame.bind(this)}
                 data-tooltip="(ends game)"
               >
-                <p><em>forefit game</em></p>
+                <p><em>forfeit game</em></p>
               </button>
             </div>
             <div className="header-center title">

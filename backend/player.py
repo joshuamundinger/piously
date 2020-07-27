@@ -15,5 +15,5 @@ class Player(object):
     def get_color(self):
         return self.faction
 
-    def get_type(self):
+    def get_obj_type(self):
         return 'player'
